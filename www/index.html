@@ -6,23 +6,14 @@
 <title>Monshin Rider</title>
 <link rel="icon" type="image/png" href="logo.png" />
 <style>
-  .logo-wrap {
-    text-align: center;
-    margin-bottom: 18px;
-  }
-  .logo-wrap img {
-    width: 76px;
-    height: 76px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid var(--accent);
-  }
   :root {
     --bg: #1a0a0a;
     --card: #2a1010;
     --accent: #dc2626;
     --text: #fdf2f2;
     --muted: #c98f8f;
+    --ok: #16a34a;
+    --warn: #d97706;
   }
   * { box-sizing: border-box; }
   body {
@@ -31,142 +22,443 @@
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+  }
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+
+  /* ---------- login ---------- */
+  #loginScreen {
+    display: flex; align-items: center; justify-content: center; padding: 24px;
   }
   .card {
-    width: 100%;
-    max-width: 360px;
-    background: var(--card);
-    border-radius: 16px;
-    padding: 32px 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    width: 100%; max-width: 360px; background: var(--card);
+    border-radius: 16px; padding: 32px 24px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
   }
-  h1 {
-    font-size: 20px;
-    margin: 0 0 4px;
-    text-align: center;
+  .logo-wrap { text-align: center; margin-bottom: 18px; }
+  .logo-wrap img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); }
+  h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
+  p.sub { color: var(--muted); font-size: 13px; text-align: center; margin: 0 0 28px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input, textarea {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #4a1f1f;
+    background: #1a0a0a; color: var(--text); font-size: 15px; margin-bottom: 16px;
   }
-  p.sub {
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
-    margin: 0 0 28px;
-  }
-  label {
-    display: block;
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 6px;
-  }
-  input {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid #4a1f1f;
-    background: #1a0a0a;
-    color: var(--text);
-    font-size: 15px;
-    margin-bottom: 16px;
-  }
-  input:focus { outline: 2px solid var(--accent); }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); }
   button {
-    width: 100%;
-    padding: 13px;
-    border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
   }
   button:active { opacity: .85; }
-  .line-btn {
-    background: #06c755;
-    margin-top: 10px;
+  button.secondary { background: transparent; border: 1px solid #4a1f1f; }
+  button.ok { background: var(--ok); }
+  button.warn { background: var(--warn); }
+  button:disabled { opacity: .5; }
+  .line-btn { background: #06c755; margin-top: 10px; }
+  .divider { text-align: center; color: var(--muted); font-size: 12px; margin: 16px 0; }
+  #loginStatus { margin-top: 14px; font-size: 13px; text-align: center; min-height: 18px; }
+
+  /* ---------- main app ---------- */
+  #appScreen { padding-bottom: 24px; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; background: var(--card); border-bottom: 1px solid #4a1f1f;
   }
-  .download-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
+  .topbar .who { font-size: 14px; }
+  .topbar .who b { color: var(--accent); }
+  #logoutBtn { width: auto; padding: 8px 14px; font-size: 13px; background: transparent; border: 1px solid #4a1f1f; }
+
+  .job-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .job-card {
+    background: var(--card); border-radius: 12px; padding: 16px;
     border: 1px solid #4a1f1f;
-    background: transparent;
-    color: var(--text);
-    font-size: 14px;
-    text-decoration: none;
-    margin-top: 10px;
   }
-  .download-btn:active { opacity: .8; }
-  .divider {
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-    margin: 16px 0;
+  .job-card .badge {
+    display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    background: var(--accent); margin-bottom: 8px;
   }
-  #status {
-    margin-top: 14px;
-    font-size: 13px;
-    text-align: center;
-    min-height: 18px;
+  .job-card .cust { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .job-card .addr { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .job-card .actions { display: flex; gap: 8px; }
+  .job-card .actions button { flex: 1; }
+  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; }
+
+  /* ---------- complete-delivery modal ---------- */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal-sheet {
+    background: var(--card); width: 100%; max-width: 420px; border-radius: 16px 16px 0 0;
+    padding: 20px; max-height: 85vh; overflow-y: auto;
+  }
+  .modal-sheet h3 { margin: 0 0 16px; }
+  .fail-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .fail-reasons button {
+    width: auto; flex: 1 1 45%; font-size: 13px; padding: 10px; background: transparent;
+    border: 1px solid #4a1f1f;
+  }
+  .fail-reasons button.selected { background: var(--warn); border-color: var(--warn); }
+  #photoPreview { width: 100%; border-radius: 10px; margin-bottom: 12px; display: none; }
+  .download-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a1f1f;
+    background: transparent; color: var(--text); font-size: 14px; text-decoration: none; margin-top: 10px;
   }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo-wrap">
-      <img src="logo.png" alt="Monshin Supply" />
+
+  <!-- ================= LOGIN SCREEN ================= -->
+  <div id="loginScreen" class="screen active">
+    <div class="card">
+      <div class="logo-wrap"><img src="logo.png" alt="Monshin Supply" /></div>
+      <h1>Monshin Rider</h1>
+      <p class="sub">เข้าสู่ระบบสำหรับไรเดอร์</p>
+
+      <label for="code">รหัสพนักงาน</label>
+      <input id="code" type="text" placeholder="เช่น RD001" />
+
+      <label for="pw">รหัสผ่าน</label>
+      <input id="pw" type="password" placeholder="••••••••" />
+
+      <button id="loginBtn">เข้าสู่ระบบ</button>
+      <div class="divider">หรือ</div>
+      <button id="lineLoginBtn" class="line-btn">เข้าสู่ระบบด้วย LINE</button>
+
+      <a id="downloadBtn" class="download-btn" href="https://github.com/rueopop-code/RiderMonshin/actions" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ดาวน์โหลดแอพไรเดอร์ (APK)
+      </a>
+
+      <div id="loginStatus"></div>
     </div>
-    <h1>Monshin Rider</h1>
-    <p class="sub">เข้าสู่ระบบสำหรับไรเดอร์</p>
-
-    <label for="code">รหัสพนักงาน</label>
-    <input id="code" type="text" placeholder="เช่น RD001" />
-
-    <label for="pw">รหัสผ่าน</label>
-    <input id="pw" type="password" placeholder="••••••••" />
-
-    <button id="loginBtn">เข้าสู่ระบบ</button>
-
-    <div class="divider">หรือ</div>
-
-    <button id="lineLoginBtn" class="line-btn">เข้าสู่ระบบด้วย LINE</button>
-
-    <a id="downloadBtn" class="download-btn" href="https://github.com/rueopop-code/RiderMonshin/actions" target="_blank" rel="noopener">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      ดาวน์โหลดแอพไรเดอร์ (APK)
-    </a>
-
-    <div id="status"></div>
   </div>
 
-  <script>
-    // TODO: replace with real GAS Web App URL once Code.gs router is deployed
-    const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz94LMeUc6Ds-O8DojY6JP9ZEvVGTNgohglfagUbQqEG62y-jKndSXzdKAFfhZ.../exec";
+  <!-- ================= MAIN APP SCREEN ================= -->
+  <div id="appScreen" class="screen">
+    <div class="topbar">
+      <div class="who">สวัสดี <b id="riderNameLabel"></b></div>
+      <button id="logoutBtn">ออกจากระบบ</button>
+    </div>
+    <div id="jobList" class="job-list"></div>
+  </div>
 
-    const statusEl = document.getElementById("status");
+  <!-- ================= COMPLETE DELIVERY MODAL ================= -->
+  <div id="completeModal" class="modal-backdrop">
+    <div class="modal-sheet">
+      <h3>ยืนยันการส่งของ</h3>
+
+      <label>ถ่ายรูปยืนยัน (ก่อนถึงมือลูกค้า)</label>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" />
+      <img id="photoPreview" />
+
+      <label for="codInput">จำนวนเงินที่เก็บ (บาท)</label>
+      <input id="codInput" type="number" inputmode="decimal" placeholder="0" />
+
+      <button id="confirmCompleteBtn" class="ok">ยืนยันส่งสำเร็จ</button>
+
+      <div class="divider">หรือ</div>
+
+      <label>ส่งไม่สำเร็จ — เลือกเหตุผล</label>
+      <div class="fail-reasons">
+        <button data-reason="no_answer">ลูกค้าไม่รับสาย</button>
+        <button data-reason="not_home">ไม่อยู่บ้าน</button>
+        <button data-reason="refused">ปฏิเสธรับของ</button>
+        <button data-reason="wrong_address">ที่อยู่ผิด</button>
+      </div>
+      <button id="confirmFailBtn" class="warn">ยืนยันส่งไม่สำเร็จ</button>
+
+      <button id="cancelModalBtn" class="secondary" style="margin-top:10px;">ยกเลิก</button>
+    </div>
+  </div>
+
+  <script src="rider-location.js"></script>
+  <script>
+    // ============================================================
+    // CONFIG — fill in SUPABASE_ANON_KEY (safe to expose client-side,
+    // this is NOT the service_role key used in GAS)
+    // ============================================================
+    const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz94LMeUc6Ds-O8DojY6JP9ZEvVGTNgohglfagUbQqEG62y-jKndSXzdKAFfhZNE77Y/exec";
+    const SUPABASE_URL = "https://ckfzscprxighfxztmgct.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZnpzY3ByeGlnaGZ4enRtZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTU0NDIsImV4cCI6MjA5MjYzMTQ0Mn0.nQ_LhPz9GsehqRSNx67G5cqxCKHD-cM1gbs2edTqUpw";
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let session = null;
+    let selectedReason = null;
+    let activeJobId = null;
+    let pollInterval = null;
+
+    // ============================================================
+    // API HELPER
+    // ============================================================
+    async function callGas(action, params = {}) {
+      try {
+        const res = await fetch(GAS_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" }, // avoids CORS preflight on GAS
+          body: JSON.stringify({ action, ...params })
+        });
+        return await res.json();
+      } catch (err) {
+        return { ok: false, error: "network_error" };
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ============================================================
+    // SESSION persistence
+    // ============================================================
+    function saveSession(s) {
+      session = s;
+      try { localStorage.setItem("rider_session", JSON.stringify(s)); } catch (e) {}
+    }
+    function loadSession() {
+      try {
+        const raw = localStorage.getItem("rider_session");
+        if (raw) session = JSON.parse(raw);
+      } catch (e) {}
+      return session;
+    }
+    function clearSession() {
+      session = null;
+      try { localStorage.removeItem("rider_session"); } catch (e) {}
+    }
+
+    // ============================================================
+    // SCREEN SWITCHING
+    // ============================================================
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    // ============================================================
+    // LOGIN
+    // ============================================================
+    const loginStatus = document.getElementById("loginStatus");
 
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const code = document.getElementById("code").value.trim();
       const pw = document.getElementById("pw").value;
-      if (!code || !pw) {
-        statusEl.textContent = "กรอกรหัสพนักงานและรหัสผ่าน";
+      if (!code || !pw) { loginStatus.textContent = "กรอกรหัสพนักงานและรหัสผ่าน"; return; }
+
+      loginStatus.textContent = "กำลังเข้าสู่ระบบ...";
+      const result = await callGas("login", { code, password: pw });
+
+      if (!result.ok) {
+        const messages = {
+          not_found: "ไม่พบรหัสพนักงานนี้",
+          not_active: "บัญชียังไม่เปิดใช้งาน",
+          wrong_password: "รหัสผ่านไม่ถูกต้อง",
+          network_error: "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง"
+        };
+        loginStatus.textContent = messages[result.error] || "เข้าสู่ระบบไม่สำเร็จ";
         return;
       }
-      statusEl.textContent = "กำลังเข้าสู่ระบบ...";
-      // Placeholder — wired up once Code.gs `login` action exists
-      statusEl.textContent = "ยังไม่ได้เชื่อมต่อ backend (รอ Code.gs)";
+
+      saveSession(result.data);
+      enterApp();
     });
 
     document.getElementById("lineLoginBtn").addEventListener("click", () => {
-      statusEl.textContent = "LINE Login ยังไม่ได้ตั้งค่า (รอ LIFF ID)";
+      loginStatus.textContent = "LINE Login ยังไม่ได้ตั้งค่า LIFF สำหรับหน้านี้";
     });
+
+    // ============================================================
+    // ENTER APP / LOGOUT
+    // ============================================================
+    function enterApp() {
+      document.getElementById("riderNameLabel").textContent = session.name;
+      showScreen("appScreen");
+      loadJobs();
+      pollInterval = setInterval(loadJobs, 15000);
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      clearInterval(pollInterval);
+      RiderLocation.stop();
+      clearSession();
+      showScreen("loginScreen");
+    });
+
+    // ============================================================
+    // JOB LIST
+    // ============================================================
+    async function loadJobs() {
+      if (!session) return;
+      const result = await callGas("poll", { riderId: session.riderId });
+      if (!result.ok) return;
+      renderJobs(result.data || []);
+    }
+
+    function renderJobs(jobs) {
+      const listEl = document.getElementById("jobList");
+      if (!jobs.length) {
+        listEl.innerHTML = '<div class="empty-state">ยังไม่มีงานตอนนี้<br>รอการแจ้งเตือนงานใหม่</div>';
+        return;
+      }
+      listEl.innerHTML = jobs.map(renderJobCard).join("");
+      jobs.forEach(job => {
+        const accept = document.getElementById("accept-" + job.id);
+        const depart = document.getElementById("depart-" + job.id);
+        const arrive = document.getElementById("arrive-" + job.id);
+        const deliver = document.getElementById("deliver-" + job.id);
+        if (accept) accept.addEventListener("click", () => acceptJob(job.id));
+        if (depart) depart.addEventListener("click", () => departJob(job.id));
+        if (arrive) arrive.addEventListener("click", () => arriveJob(job.id));
+        if (deliver) deliver.addEventListener("click", () => openCompleteModal(job.id));
+      });
+    }
+
+    function renderJobCard(job) {
+      const statusLabels = {
+        offered: "งานใหม่", accepted: "รับงานแล้ว", departed: "กำลังเดินทาง", arrived: "ถึงที่หมายแล้ว"
+      };
+      let actionsHtml = "";
+      if (job.status === "offered") {
+        actionsHtml = '<button id="accept-' + job.id + '">รับงาน</button>';
+      } else if (job.status === "accepted") {
+        actionsHtml = '<button id="depart-' + job.id + '">พร้อมออกเดินทาง</button>';
+      } else if (job.status === "departed") {
+        actionsHtml = '<button id="arrive-' + job.id + '">ถึงที่หมายแล้ว</button>';
+      } else if (job.status === "arrived") {
+        actionsHtml = '<button id="deliver-' + job.id + '" class="ok">ส่งของ</button>';
+      }
+      return '<div class="job-card">' +
+        '<span class="badge">' + (statusLabels[job.status] || job.status) + '</span>' +
+        '<div class="cust">' + escapeHtml(job.cust_name || "-") + '</div>' +
+        '<div class="addr">' + escapeHtml(job.cust_address || "-") + '</div>' +
+        (job.cod_amount ? '<div class="addr">เก็บเงินปลายทาง: ' + job.cod_amount + ' บาท</div>' : '') +
+        '<div class="actions">' + actionsHtml + '</div>' +
+        '</div>';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ============================================================
+    // JOB ACTIONS
+    // ============================================================
+    async function acceptJob(jobId) {
+      const result = await callGas("acceptJob", { jobId, riderId: session.riderId });
+      if (result.ok) loadJobs();
+    }
+
+    async function departJob(jobId) {
+      const result = await callGas("depart", { jobId, riderId: session.riderId });
+      if (result.ok) {
+        RiderLocation.start(session.riderId, jobId, {
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_ANON_KEY
+        });
+        loadJobs();
+      }
+    }
+
+    async function arriveJob(jobId) {
+      const result = await callGas("arrive", { jobId, riderId: session.riderId });
+      if (result.ok) loadJobs();
+    }
+
+    // ============================================================
+    // COMPLETE / FAIL MODAL
+    // ============================================================
+    const modal = document.getElementById("completeModal");
+    const photoInput = document.getElementById("photoInput");
+    const photoPreview = document.getElementById("photoPreview");
+
+    function openCompleteModal(jobId) {
+      activeJobId = jobId;
+      photoInput.value = "";
+      photoPreview.style.display = "none";
+      document.getElementById("codInput").value = "";
+      selectedReason = null;
+      document.querySelectorAll(".fail-reasons button").forEach(b => b.classList.remove("selected"));
+      modal.classList.add("active");
+    }
+
+    document.getElementById("cancelModalBtn").addEventListener("click", () => {
+      modal.classList.remove("active");
+    });
+
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { photoPreview.src = reader.result; photoPreview.style.display = "block"; };
+      reader.readAsDataURL(file);
+    });
+
+    document.querySelectorAll(".fail-reasons button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".fail-reasons button").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        selectedReason = btn.dataset.reason;
+      });
+    });
+
+    document.getElementById("confirmCompleteBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("confirmCompleteBtn");
+      btn.disabled = true; btn.textContent = "กำลังส่งข้อมูล...";
+
+      let photoBase64 = null;
+      if (photoInput.files[0]) photoBase64 = await fileToBase64(photoInput.files[0]);
+
+      const codCollected = Number(document.getElementById("codInput").value) || 0;
+
+      const result = await callGas("complete", {
+        jobId: activeJobId, riderId: session.riderId, photoBase64, codCollected
+      });
+
+      btn.disabled = false; btn.textContent = "ยืนยันส่งสำเร็จ";
+
+      if (result.ok) {
+        RiderLocation.stop();
+        modal.classList.remove("active");
+        loadJobs();
+      } else {
+        alert("ส่งข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
+    });
+
+    document.getElementById("confirmFailBtn").addEventListener("click", async () => {
+      if (!selectedReason) { alert("เลือกเหตุผลก่อน"); return; }
+      const btn = document.getElementById("confirmFailBtn");
+      btn.disabled = true; btn.textContent = "กำลังบันทึก...";
+
+      const result = await callGas("failJob", {
+        jobId: activeJobId, riderId: session.riderId, reason: selectedReason
+      });
+
+      btn.disabled = false; btn.textContent = "ยืนยันส่งไม่สำเร็จ";
+
+      if (result.ok) {
+        RiderLocation.stop();
+        modal.classList.remove("active");
+        loadJobs();
+      } else {
+        alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
+    });
+
+    // ============================================================
+    // BOOT
+    // ============================================================
+    if (loadSession()) enterApp();
   </script>
 </body>
 </html>
