@@ -1,0 +1,19 @@
+{
+  "name": "monshin-rider",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "sync": "npx cap sync android",
+    "open:android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor/push-notifications": "^6.0.3",
+    "@capacitor-community/background-geolocation": "^1.2.24"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

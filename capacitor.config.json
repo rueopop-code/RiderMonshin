@@ -1,0 +1,14 @@
+{
+  "appId": "com.monshin.rider",
+  "appName": "Monshin Rider",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800
+    }
+  }
+}

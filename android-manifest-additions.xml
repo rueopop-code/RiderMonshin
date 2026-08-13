@@ -1,0 +1,26 @@
+<!--
+  Add these inside <manifest> in android/app/src/main/AndroidManifest.xml
+  (Capacitor generates this file when you run `npx cap add android` —
+  edit the generated file, don't replace it.)
+-->
+
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<!-- Required on Android 10+ (API 29+) for tracking while the screen is locked -->
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.INTERNET" />
+
+<!--
+  Android 11+ requires a TWO-STEP permission flow:
+  1. App requests ACCESS_FINE_LOCATION -> user picks "While using the app"
+  2. App later requests ACCESS_BACKGROUND_LOCATION separately -> user goes to
+     Settings and picks "Allow all the time"
+  The plugin's requestPermissions:true handles step 1 automatically but
+  step 2 needs an explicit prompt in the rider onboarding screen
+  ("ต้องเปิดสิทธิ์ตำแหน่งแบบ 'ตลอดเวลา' ไม่งั้นลูกค้าจะเห็นหมุดค้าง").
+-->
