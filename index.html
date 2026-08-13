@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Monshin Rider</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<style>
+  .logo-wrap {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .logo-wrap img {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--accent);
+  }
+  :root {
+    --bg: #1a0a0a;
+    --card: #2a1010;
+    --accent: #dc2626;
+    --text: #fdf2f2;
+    --muted: #c98f8f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border-radius: 16px;
+    padding: 32px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+    text-align: center;
+  }
+  p.sub {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    margin: 0 0 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #4a1f1f;
+    background: #1a0a0a;
+    color: var(--text);
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  input:focus { outline: 2px solid var(--accent); }
+  button {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:active { opacity: .85; }
+  .line-btn {
+    background: #06c755;
+    margin-top: 10px;
+  }
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #4a1f1f;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .download-btn:active { opacity: .8; }
+  .divider {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin: 16px 0;
+  }
+  #status {
+    margin-top: 14px;
+    font-size: 13px;
+    text-align: center;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-wrap">
+      <img src="logo.png" alt="Monshin Supply" />
+    </div>
+    <h1>Monshin Rider</h1>
+    <p class="sub">เข้าสู่ระบบสำหรับไรเดอร์</p>
+
+    <label for="code">รหัสพนักงาน</label>
+    <input id="code" type="text" placeholder="เช่น RD001" />
+
+    <label for="pw">รหัสผ่าน</label>
+    <input id="pw" type="password" placeholder="••••••••" />
+
+    <button id="loginBtn">เข้าสู่ระบบ</button>
+
+    <div class="divider">หรือ</div>
+
+    <button id="lineLoginBtn" class="line-btn">เข้าสู่ระบบด้วย LINE</button>
+
+    <a id="downloadBtn" class="download-btn" href="https://github.com/rueopop-code/RiderMonshin/actions" target="_blank" rel="noopener">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      ดาวน์โหลดแอพไรเดอร์ (APK)
+    </a>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    // TODO: replace with real GAS Web App URL once Code.gs router is deployed
+    const GAS_ENDPOINT = "REPLACE_WITH_GAS_WEB_APP_URL";
+
+    const statusEl = document.getElementById("status");
+
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const code = document.getElementById("code").value.trim();
+      const pw = document.getElementById("pw").value;
+      if (!code || !pw) {
+        statusEl.textContent = "กรอกรหัสพนักงานและรหัสผ่าน";
+        return;
+      }
+      statusEl.textContent = "กำลังเข้าสู่ระบบ...";
+      // Placeholder — wired up once Code.gs `login` action exists
+      statusEl.textContent = "ยังไม่ได้เชื่อมต่อ backend (รอ Code.gs)";
+    });
+
+    document.getElementById("lineLoginBtn").addEventListener("click", () => {
+      statusEl.textContent = "LINE Login ยังไม่ได้ตั้งค่า (รอ LIFF ID)";
+    });
+  </script>
+</body>
+</html>
