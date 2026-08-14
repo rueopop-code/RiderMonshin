@@ -3,6 +3,10 @@
   "appName": "Monshin Rider",
   "webDir": "www",
   "bundledWebRuntime": false,
+  "server": {
+    "url": "https://rueopop-code.github.io/RiderMonshin/www/index.html",
+    "cleartext": true
+  },
   "android": {
     "allowMixedContent": true
   },
