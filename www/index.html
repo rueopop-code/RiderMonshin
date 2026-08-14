@@ -132,6 +132,7 @@
   .history-item {
     background: var(--card); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
     border: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    cursor: pointer;
   }
   .history-item .left { min-width: 0; flex: 1; }
   .history-item .cust { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
@@ -194,12 +195,15 @@
   .tabbar-btn svg { width: 21px; height: 21px; }
   .tabbar-btn.active { color: var(--accent); }
 
-  /* ---------- job detail screen ---------- */
+  /* ---------- job / history detail screen ---------- */
   #jobDetailScreen {
     display: none; position: fixed; inset: 0; z-index: 60; background: var(--bg);
     flex-direction: column;
   }
   #jobDetailScreen.active { display: flex; }
+  #jobDetailScreen.no-map #jobMap,
+  #jobDetailScreen.no-map #mapHint { display: none; }
+  #jobDetailScreen.history-mode .detail-actions { display: none; }
   .detail-topbar {
     display: flex; align-items: center; gap: 12px; padding: 14px 16px;
     background: var(--card); border-bottom: 1px solid var(--line); flex-shrink: 0;
@@ -208,6 +212,11 @@
   #jobMap { width: 100%; height: 42vh; background: var(--card-2); flex-shrink: 0; }
   .detail-body { flex: 1; overflow-y: auto; padding: 18px 16px calc(var(--tabbar-h) + 20px); }
   .detail-cust-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  #detailProofPhoto { display: none; width: 100%; border-radius: 12px; margin: 12px 0 16px; }
+  #detailFailReasonBox {
+    display: none; background: rgba(217,119,6,.12); border: 1px solid var(--warn);
+    border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 13px; color: #fbbf24;
+  }
   .detail-row {
     display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line);
   }
@@ -367,7 +376,7 @@
     </div>
   </div>
 
-  <!-- ================= JOB DETAIL SCREEN (map + route + actions) ================= -->
+  <!-- ================= JOB / HISTORY DETAIL SCREEN ================= -->
   <div id="jobDetailScreen">
     <div class="detail-topbar">
       <button id="closeDetailBtn" class="icon-btn" type="button" style="width:34px;height:34px;">
@@ -382,6 +391,9 @@
     <div class="detail-body">
       <div class="detail-cust-name" id="detailCustName">-</div>
 
+      <img id="detailProofPhoto" alt="รูปยืนยันการส่งของ" />
+      <div id="detailFailReasonBox"></div>
+
       <div class="detail-row">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         <div>
@@ -390,7 +402,7 @@
         </div>
       </div>
 
-      <div class="detail-row">
+      <div class="detail-row" id="detailPhoneRow">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
         <div>
           <div class="label">เบอร์โทรลูกค้า</div>
@@ -398,8 +410,16 @@
         </div>
       </div>
 
+      <div class="detail-row" id="detailDateRow" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+        <div>
+          <div class="label">วันเวลาที่ดำเนินการ</div>
+          <div class="value" id="detailDate">-</div>
+        </div>
+      </div>
+
       <div class="detail-cod" id="detailCodBox" style="display:none;">
-        <span class="lbl">เก็บเงินปลายทาง</span>
+        <span class="lbl" id="detailCodLabel">เก็บเงินปลายทาง</span>
         <span class="amt" id="detailCodAmount">0 บาท</span>
       </div>
 
@@ -723,7 +743,6 @@
       lastJobs = result.data;
       renderJobs(lastJobs);
 
-      // keep the detail screen's data fresh if it's currently open on this job
       if (currentDetailJob) {
         const fresh = lastJobs.find(j => j.id === currentDetailJob.id);
         if (fresh) { currentDetailJob = fresh; renderDetailActions(fresh); }
@@ -742,7 +761,7 @@
       jobs.forEach(job => {
         const card = document.getElementById("card-" + job.id);
         if (card) card.addEventListener("click", (e) => {
-          if (e.target.closest("button")) return; // let the inline action button handle its own click
+          if (e.target.closest("button")) return;
           openJobDetail(job);
         });
         const accept = document.getElementById("accept-" + job.id);
@@ -805,15 +824,30 @@
     }
 
     // ============================================================
-    // JOB DETAIL SCREEN (map + route + primary action + cancel)
+    // JOB DETAIL SCREEN — live job (map + route + primary action + cancel)
     // ============================================================
     const jobDetailScreen = document.getElementById("jobDetailScreen");
     const detailPrimaryBtn = document.getElementById("detailPrimaryBtn");
     const detailCancelBtn = document.getElementById("detailCancelBtn");
     const mapHint = document.getElementById("mapHint");
+    const detailProofPhoto = document.getElementById("detailProofPhoto");
+    const detailFailReasonBox = document.getElementById("detailFailReasonBox");
+    const detailPhoneRow = document.getElementById("detailPhoneRow");
+    const detailDateRow = document.getElementById("detailDateRow");
+
+    function resetDetailExtras() {
+      detailProofPhoto.style.display = "none";
+      detailFailReasonBox.style.display = "none";
+      detailPhoneRow.style.display = "flex";
+      detailDateRow.style.display = "none";
+      document.getElementById("detailCodLabel").textContent = "เก็บเงินปลายทาง";
+    }
 
     function openJobDetail(job) {
       currentDetailJob = job;
+      jobDetailScreen.classList.remove("history-mode", "no-map");
+      resetDetailExtras();
+
       document.getElementById("detailBadge").textContent = statusLabels[job.status] || "รายละเอียดงาน";
       document.getElementById("detailCustName").textContent = job.cust_name || "-";
       document.getElementById("detailAddress").textContent = job.cust_address || "-";
@@ -837,7 +871,7 @@
 
       renderDetailActions(job);
       jobDetailScreen.classList.add("active");
-      setTimeout(() => initJobMap(job), 50); // let the screen render/layout first so Leaflet sizes correctly
+      setTimeout(() => initJobMap(job), 50);
     }
 
     function renderDetailActions(job) {
@@ -849,6 +883,7 @@
       };
       const cfg = map[job.status] || { label: "-", fn: () => {} };
       detailPrimaryBtn.textContent = cfg.label;
+      detailPrimaryBtn.style.display = "block";
       detailPrimaryBtn.onclick = cfg.fn;
       detailCancelBtn.style.display = (job.status === "offered" || job.status === "accepted") ? "block" : "none";
     }
@@ -875,7 +910,7 @@
       }
     });
 
-    // ---- map + route (Leaflet + OSRM) ----
+    // ---- map + route (Leaflet + OSRM) — only for live jobs ----
     function initJobMap(job) {
       if (jobMapInstance) { jobMapInstance.remove(); jobMapInstance = null; }
       jobMapMarkers = [];
@@ -898,7 +933,7 @@
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(jobMapInstance);
 
       if (!hasDest) {
-        jobMapInstance.setView([18.1459, 100.1410], 13); // fallback: Phrae province center
+        jobMapInstance.setView([18.1459, 100.1410], 13);
         mapHint.textContent = "ไม่มีพิกัดที่อยู่ลูกค้าสำหรับงานนี้";
         return;
       }
@@ -955,8 +990,54 @@
     }
 
     // ============================================================
+    // HISTORY DETAIL — read-only: no map (no coords stored), shows
+    // proof photo (done) or fail reason (failed), no action buttons
+    // ============================================================
+    function openHistoryDetail(row) {
+      currentDetailJob = null;
+      jobDetailScreen.classList.add("history-mode", "no-map");
+      resetDetailExtras();
+
+      const isDone = row.status === "done";
+      document.getElementById("detailBadge").textContent = isDone ? "ส่งสำเร็จ" : "ส่งไม่สำเร็จ";
+      document.getElementById("detailCustName").textContent = row.cust_name || "-";
+      document.getElementById("detailAddress").textContent = row.cust_address || "-";
+
+      detailPhoneRow.style.display = "none"; // JOB_HISTORY doesn't store the customer phone
+
+      detailDateRow.style.display = "flex";
+      document.getElementById("detailDate").textContent = formatDate(row.done_at);
+
+      if (isDone && row.proof_photo_url) {
+        detailProofPhoto.src = row.proof_photo_url;
+        detailProofPhoto.style.display = "block";
+      }
+
+      if (!isDone) {
+        detailFailReasonBox.style.display = "block";
+        detailFailReasonBox.textContent = "เหตุผลที่ส่งไม่สำเร็จ: " + (failReasonLabels[row.fail_reason] || row.fail_reason || "ไม่ระบุ");
+      }
+
+      const codBox = document.getElementById("detailCodBox");
+      if (isDone && row.cod_collected) {
+        codBox.style.display = "flex";
+        document.getElementById("detailCodLabel").textContent = "เก็บเงินแล้ว";
+        document.getElementById("detailCodAmount").textContent = Number(row.cod_collected).toLocaleString("th-TH") + " บาท";
+      } else {
+        codBox.style.display = "none";
+      }
+
+      detailPrimaryBtn.style.display = "none";
+      detailCancelBtn.style.display = "none";
+
+      jobDetailScreen.classList.add("active");
+    }
+
+    // ============================================================
     // HISTORY TAB
     // ============================================================
+    let lastHistory = [];
+
     async function loadHistory() {
       if (!session) return;
       const listEl = document.getElementById("historyList");
@@ -965,7 +1046,8 @@
         listEl.innerHTML = '<div class="empty-state">โหลดประวัติไม่สำเร็จ ลองรีเฟรชอีกครั้ง</div>';
         return;
       }
-      renderHistory(result.data);
+      lastHistory = result.data;
+      renderHistory(lastHistory);
     }
 
     function renderHistory(rows) {
@@ -976,7 +1058,11 @@
           '<div>ยังไม่มีประวัติการส่งของ</div></div>';
         return;
       }
-      listEl.innerHTML = rows.map(renderHistoryItem).join("");
+      listEl.innerHTML = rows.map((row, i) => renderHistoryItem(row, i)).join("");
+      rows.forEach((row, i) => {
+        const el = document.getElementById("hist-" + i);
+        if (el) el.addEventListener("click", () => openHistoryDetail(row));
+      });
     }
 
     function formatDate(iso) {
@@ -992,9 +1078,9 @@
       refused: "ปฏิเสธรับของ", wrong_address: "ที่อยู่ผิด"
     };
 
-    function renderHistoryItem(row) {
+    function renderHistoryItem(row, i) {
       const isDone = row.status === "done";
-      return '<div class="history-item">' +
+      return '<div class="history-item" id="hist-' + i + '">' +
         '<div class="left">' +
           '<div class="cust">' + escapeHtml(row.cust_name || "-") + '</div>' +
           '<div class="addr">' + escapeHtml(row.cust_address || "-") + '</div>' +
