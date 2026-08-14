@@ -9,13 +9,19 @@
   :root {
     --bg: #1a0a0a;
     --card: #2a1010;
+    --card-2: #341414;
     --accent: #dc2626;
+    --accent-dim: #7f1d1d;
     --text: #fdf2f2;
     --muted: #c98f8f;
+    --muted-2: #8f6060;
     --ok: #16a34a;
     --warn: #d97706;
+    --line: #4a1f1f;
+    --tabbar-h: 64px;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
@@ -40,16 +46,17 @@
   p.sub { color: var(--muted); font-size: 13px; text-align: center; margin: 0 0 28px; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   input, textarea {
-    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #4a1f1f;
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
     background: #1a0a0a; color: var(--text); font-size: 15px; margin-bottom: 16px;
   }
   input:focus, textarea:focus { outline: 2px solid var(--accent); }
   button {
     width: 100%; padding: 13px; border: none; border-radius: 10px;
     background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: inherit;
   }
   button:active { opacity: .85; }
-  button.secondary { background: transparent; border: 1px solid #4a1f1f; }
+  button.secondary { background: transparent; border: 1px solid var(--line); }
   button.ok { background: var(--ok); }
   button.warn { background: var(--warn); }
   button:disabled { opacity: .5; cursor: not-allowed; }
@@ -57,30 +64,132 @@
   .divider { text-align: center; color: var(--muted); font-size: 12px; margin: 16px 0; }
   #loginStatus { margin-top: 14px; font-size: 13px; text-align: center; min-height: 18px; }
 
-  /* ---------- main app ---------- */
-  #appScreen { padding-bottom: 24px; }
+  /* ---------- main app shell ---------- */
+  #appScreen.active { display: flex; flex-direction: column; }
   .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 18px; background: var(--card); border-bottom: 1px solid #4a1f1f;
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px; background: var(--card);
+    border-bottom: 1px solid var(--line);
   }
-  .topbar .who { font-size: 14px; }
-  .topbar .who b { color: var(--accent); }
-  #logoutBtn { width: auto; padding: 8px 14px; font-size: 13px; background: transparent; border: 1px solid #4a1f1f; }
+  .topbar .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .avatar-circle {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;
+    flex-shrink: 0; border: 1px solid var(--accent); overflow: hidden;
+  }
+  .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+  .who-text { min-width: 0; }
+  .who-text .greeting { font-size: 11px; color: var(--muted); line-height: 1.3; }
+  .who-text .name { font-size: 15px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 10px; background: var(--card-2);
+    border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
+    color: var(--text); cursor: pointer; padding: 0;
+  }
+  .icon-btn svg { width: 19px; height: 19px; }
+  .icon-btn.spinning svg { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .job-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .tab-panel { display: none; padding: 16px 16px calc(var(--tabbar-h) + 24px); flex: 1; }
+  .tab-panel.active { display: block; }
+
+  /* ---------- orders tab ---------- */
+  .section-title { font-size: 13px; color: var(--muted); margin: 4px 2px 12px; font-weight: 600; letter-spacing: .3px; }
+  .job-list { display: flex; flex-direction: column; gap: 12px; }
   .job-card {
-    background: var(--card); border-radius: 12px; padding: 16px;
-    border: 1px solid #4a1f1f;
+    background: var(--card); border-radius: 14px; padding: 16px;
+    border: 1px solid var(--line); position: relative; overflow: hidden;
+  }
+  .job-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent);
   }
   .job-card .badge {
-    display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px;
-    background: var(--accent); margin-bottom: 8px;
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px; background: var(--accent-dim); color: #ffd7d7; margin-bottom: 10px;
   }
-  .job-card .cust { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-  .job-card .addr { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .job-card .actions { display: flex; gap: 8px; }
+  .job-card .cust { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .job-card .addr { color: var(--muted); font-size: 13px; margin-bottom: 4px; display: flex; gap: 6px; align-items: flex-start; }
+  .job-card .addr svg { flex-shrink: 0; margin-top: 2px; width: 14px; height: 14px; opacity: .7; }
+  .job-card .cod-line { color: var(--warn); font-size: 13px; font-weight: 600; margin-top: 6px; }
+  .job-card .actions { display: flex; gap: 8px; margin-top: 14px; }
   .job-card .actions button { flex: 1; }
-  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; }
+
+  .empty-state { text-align: center; color: var(--muted); padding: 70px 20px 20px; font-size: 14px; line-height: 1.7; }
+  .empty-state svg { width: 44px; height: 44px; opacity: .35; margin-bottom: 14px; }
+
+  .spinner-center { display: flex; justify-content: center; padding: 40px 0; }
+  .spinner {
+    width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line);
+    border-top-color: var(--accent); animation: spin .8s linear infinite;
+  }
+
+  /* ---------- history tab ---------- */
+  .history-item {
+    background: var(--card); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+    border: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  }
+  .history-item .left { min-width: 0; flex: 1; }
+  .history-item .cust { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .history-item .addr { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .history-item .date { color: var(--muted-2); font-size: 11px; }
+  .history-item .right { text-align: right; flex-shrink: 0; }
+  .status-pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .status-pill.done { background: rgba(22,163,74,.18); color: #4ade80; }
+  .status-pill.failed { background: rgba(217,119,6,.18); color: #fbbf24; }
+  .history-item .cod { font-size: 12px; color: var(--warn); margin-top: 6px; font-weight: 600; }
+
+  /* ---------- account tab ---------- */
+  .profile-card {
+    background: linear-gradient(135deg, var(--card) 0%, var(--card-2) 100%);
+    border: 1px solid var(--line); border-radius: 16px; padding: 24px 20px; text-align: center; margin-bottom: 16px;
+  }
+  .avatar-big-wrap { position: relative; width: 68px; margin: 0 auto 12px; }
+  .avatar-big {
+    width: 68px; height: 68px; border-radius: 50%; background: var(--accent-dim);
+    border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 700; overflow: hidden;
+  }
+  .avatar-big img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-edit-btn {
+    position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--card); display: flex; align-items: center;
+    justify-content: center; cursor: pointer;
+  }
+  .avatar-edit-btn svg { width: 13px; height: 13px; color: #fff; }
+  .avatar-edit-btn.uploading svg { animation: spin .8s linear infinite; }
+  .profile-card .pname { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+  .profile-card .pcode { font-size: 13px; color: var(--muted); }
+  #photoUploadStatus { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+
+  .stat-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .stat-box { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat-box .num { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .menu-list { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .menu-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: 14px; cursor: pointer; }
+  .menu-row:last-child { border-bottom: none; }
+  .menu-row svg { width: 18px; height: 18px; color: var(--muted); flex-shrink: 0; }
+  .menu-row span { flex: 1; }
+  .menu-row .chev { color: var(--muted-2); }
+
+  #logoutBtn2 { background: transparent; border: 1px solid var(--line); color: #f87171; }
+
+  /* ---------- bottom tab bar ---------- */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabbar-h); z-index: 30;
+    background: var(--card); border-top: 1px solid var(--line);
+    display: flex; padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .tabbar-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; background: none; border: none; color: var(--muted-2); font-size: 11px;
+    padding: 6px 0; cursor: pointer; font-family: inherit;
+  }
+  .tabbar-btn svg { width: 21px; height: 21px; }
+  .tabbar-btn.active { color: var(--accent); }
 
   /* ---------- complete-delivery modal ---------- */
   .modal-backdrop {
@@ -94,21 +203,13 @@
   }
   .modal-sheet h3 { margin: 0 0 16px; }
   .fail-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-  .fail-reasons button {
-    width: auto; flex: 1 1 45%; font-size: 13px; padding: 10px; background: transparent;
-    border: 1px solid #4a1f1f;
-  }
+  .fail-reasons button { width: auto; flex: 1 1 45%; font-size: 13px; padding: 10px; background: transparent; border: 1px solid var(--line); }
   .fail-reasons button.selected { background: var(--warn); border-color: var(--warn); }
   #photoPreview { width: 100%; border-radius: 10px; margin-bottom: 12px; display: none; }
   .download-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a1f1f;
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
     background: transparent; color: var(--text); font-size: 14px; text-decoration: none; margin-top: 10px;
-  }
-  #debugBox {
-    position: fixed; bottom: 0; left: 0; right: 0; max-height: 30vh; overflow-y: auto;
-    background: #000; color: #0f0; font-family: monospace; font-size: 11px;
-    padding: 8px; display: none; z-index: 999; white-space: pre-wrap;
   }
 </style>
 </head>
@@ -143,10 +244,93 @@
   <!-- ================= MAIN APP SCREEN ================= -->
   <div id="appScreen" class="screen">
     <div class="topbar">
-      <div class="who">สวัสดี <b id="riderNameLabel"></b></div>
-      <button id="logoutBtn" type="button">ออกจากระบบ</button>
+      <div class="who">
+        <div class="avatar-circle" id="avatarInitial">?</div>
+        <div class="who-text">
+          <div class="greeting">สวัสดี</div>
+          <div class="name" id="riderNameLabel">-</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="refreshBtn" class="icon-btn" type="button" title="รีเฟรช">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+        </button>
+      </div>
     </div>
-    <div id="jobList" class="job-list"></div>
+
+    <!-- ---- ORDERS TAB ---- -->
+    <div id="tabOrders" class="tab-panel active">
+      <div class="section-title">งานที่ได้รับมอบหมาย</div>
+      <div id="jobList" class="job-list">
+        <div class="spinner-center"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ---- HISTORY TAB ---- -->
+    <div id="tabHistory" class="tab-panel">
+      <div class="section-title">ประวัติการส่งของ</div>
+      <div id="historyList">
+        <div class="spinner-center"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ---- ACCOUNT TAB ---- -->
+    <div id="tabAccount" class="tab-panel">
+      <div class="profile-card">
+        <div class="avatar-big-wrap">
+          <div class="avatar-big" id="avatarInitialBig">?</div>
+          <div class="avatar-edit-btn" id="avatarEditBtn" title="เปลี่ยนรูปโปรไฟล์">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </div>
+          <input id="avatarFileInput" type="file" accept="image/*" style="display:none" />
+        </div>
+        <div class="pname" id="accNameLabel">-</div>
+        <div class="pcode" id="accCodeLabel">-</div>
+        <div id="photoUploadStatus"></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="num" id="codTotalLabel">–</div>
+          <div class="lbl">เก็บเงินวันนี้ (บาท)</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="codCountLabel">–</div>
+          <div class="lbl">งานที่ส่งวันนี้</div>
+        </div>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-row" id="downloadApkRow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>ดาวน์โหลดแอพเวอร์ชันล่าสุด</span>
+          <span class="chev">›</span>
+        </div>
+        <div class="menu-row" id="refreshAccountRow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+          <span>รีเฟรชข้อมูล</span>
+          <span class="chev">›</span>
+        </div>
+      </div>
+
+      <button id="logoutBtn2" type="button">ออกจากระบบ</button>
+    </div>
+
+    <!-- ---- BOTTOM TAB BAR ---- -->
+    <div class="tabbar">
+      <button class="tabbar-btn active" data-tab="tabOrders" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>ออเดอร์</span>
+      </button>
+      <button class="tabbar-btn" data-tab="tabHistory" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+        <span>ประวัติ</span>
+      </button>
+      <button class="tabbar-btn" data-tab="tabAccount" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        <span>บัญชี</span>
+      </button>
+    </div>
   </div>
 
   <!-- ================= COMPLETE DELIVERY MODAL ================= -->
@@ -178,9 +362,6 @@
     </div>
   </div>
 
-  <!-- debug overlay: shows the last error directly on screen, no DevTools needed -->
-  <div id="debugBox"></div>
-
   <script src="rider-location.js"></script>
   <script>
     // ============================================================
@@ -191,15 +372,10 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZnpzY3ByeGlnaGZ4enRtZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTU0NDIsImV4cCI6MjA5MjYzMTQ0Mn0.nQ_LhPz9GsehqRSNx67G5cqxCKHD-cM1gbs2edTqUpw";
 
     // ============================================================
-    // ON-SCREEN DEBUG LOG (works even without opening DevTools)
+    // LOGGING — goes to DevTools console only, nothing shown on screen
     // ============================================================
-    const debugBox = document.getElementById("debugBox");
     function debugLog(...args) {
-      const line = args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" ");
       console.log(...args);
-      debugBox.style.display = "block";
-      debugBox.textContent += new Date().toLocaleTimeString() + "  " + line + "\n";
-      debugBox.scrollTop = debugBox.scrollHeight;
     }
 
     // ============================================================
@@ -209,9 +385,10 @@
     let selectedReason = null;
     let activeJobId = null;
     let pollInterval = null;
+    let activeTab = "tabOrders";
 
     // ============================================================
-    // API HELPER — single attempt, no silent retry, always logs what happened
+    // API HELPER — single attempt, always logs what happened
     // ============================================================
     async function callGas(action, params = {}) {
       debugLog("→ callGas", action, params);
@@ -243,6 +420,27 @@
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // downscale + compress an image before upload (keeps profile photo uploads fast/small)
+    function resizeImage(file, maxSize = 640, quality = 0.85) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = () => { img.src = reader.result; };
+        reader.onerror = reject;
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+          else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
@@ -310,7 +508,6 @@
     }
 
     loginBtn.addEventListener("click", doLogin);
-    // also allow pressing Enter in either field
     document.getElementById("code").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
     document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
 
@@ -321,22 +518,124 @@
     // ============================================================
     // ENTER APP / LOGOUT
     // ============================================================
+    function initials(name) {
+      if (!name) return "?";
+      const parts = String(name).trim().split(/\s+/);
+      return (parts[0][0] || "?").toUpperCase();
+    }
+
+    function renderAvatars() {
+      const small = document.getElementById("avatarInitial");
+      const big = document.getElementById("avatarInitialBig");
+      if (session && session.photoUrl) {
+        small.innerHTML = '<img src="' + session.photoUrl + '" alt="" />';
+        big.innerHTML = '<img src="' + session.photoUrl + '" alt="" />';
+      } else {
+        const ini = initials(session ? session.name : "");
+        small.textContent = ini;
+        big.textContent = ini;
+      }
+    }
+
     function enterApp() {
       document.getElementById("riderNameLabel").textContent = session.name;
+      document.getElementById("accNameLabel").textContent = session.name;
+      document.getElementById("accCodeLabel").textContent = "รหัสพนักงาน: " + session.code;
+      renderAvatars();
+
       showScreen("appScreen");
-      loadJobs();
+      switchTab("tabOrders");
+
+      clearInterval(pollInterval);
       pollInterval = setInterval(loadJobs, 15000);
     }
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
+    function doLogout() {
       clearInterval(pollInterval);
       if (window.RiderLocation) RiderLocation.stop();
       clearSession();
       showScreen("loginScreen");
+    }
+    document.getElementById("logoutBtn2").addEventListener("click", doLogout);
+
+    // ============================================================
+    // TAB SWITCHING
+    // ============================================================
+    function switchTab(tabId) {
+      activeTab = tabId;
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      document.getElementById(tabId).classList.add("active");
+      document.querySelectorAll(".tabbar-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.tab === tabId);
+      });
+
+      if (tabId === "tabOrders") loadJobs();
+      if (tabId === "tabHistory") loadHistory();
+      if (tabId === "tabAccount") loadAccountStats();
+    }
+
+    document.querySelectorAll(".tabbar-btn").forEach(btn => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById("refreshAccountRow").addEventListener("click", () => refreshCurrentTab());
+    document.getElementById("downloadApkRow").addEventListener("click", () => {
+      window.open("https://github.com/rueopop-code/RiderMonshin/actions", "_blank");
     });
 
     // ============================================================
-    // JOB LIST
+    // MANUAL REFRESH BUTTON (top bar)
+    // ============================================================
+    const refreshBtn = document.getElementById("refreshBtn");
+    async function refreshCurrentTab() {
+      refreshBtn.classList.add("spinning");
+      if (activeTab === "tabOrders") await loadJobs();
+      else if (activeTab === "tabHistory") await loadHistory();
+      else if (activeTab === "tabAccount") await loadAccountStats();
+      setTimeout(() => refreshBtn.classList.remove("spinning"), 300);
+    }
+    refreshBtn.addEventListener("click", refreshCurrentTab);
+
+    // ============================================================
+    // PROFILE PHOTO UPLOAD
+    // ============================================================
+    const avatarFileInput = document.getElementById("avatarFileInput");
+    const avatarEditBtn = document.getElementById("avatarEditBtn");
+    const photoUploadStatus = document.getElementById("photoUploadStatus");
+
+    avatarEditBtn.addEventListener("click", () => avatarFileInput.click());
+
+    avatarFileInput.addEventListener("change", async () => {
+      const file = avatarFileInput.files[0];
+      if (!file || !session) return;
+
+      avatarEditBtn.classList.add("uploading");
+      photoUploadStatus.textContent = "กำลังอัปโหลดรูป...";
+
+      try {
+        const resized = await resizeImage(file);
+        const result = await callGas("updatePhoto", { riderId: session.riderId, photoBase64: resized });
+
+        if (result.ok && result.data && result.data.photoUrl) {
+          session.photoUrl = result.data.photoUrl;
+          saveSession(session);
+          renderAvatars();
+          photoUploadStatus.textContent = "อัปเดตรูปโปรไฟล์แล้ว";
+          setTimeout(() => { photoUploadStatus.textContent = ""; }, 2500);
+        } else {
+          photoUploadStatus.textContent = "อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง";
+        }
+      } catch (err) {
+        debugLog("photo upload error", err);
+        photoUploadStatus.textContent = "อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง";
+      }
+
+      avatarEditBtn.classList.remove("uploading");
+      avatarFileInput.value = "";
+    });
+
+    // ============================================================
+    // ORDERS TAB
     // ============================================================
     async function loadJobs() {
       if (!session) return;
@@ -351,7 +650,9 @@
     function renderJobs(jobs) {
       const listEl = document.getElementById("jobList");
       if (!jobs.length) {
-        listEl.innerHTML = '<div class="empty-state">ยังไม่มีงานตอนนี้<br>รอการแจ้งเตือนงานใหม่</div>';
+        listEl.innerHTML = '<div class="empty-state">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>' +
+          '<div>ยังไม่มีงานตอนนี้<br>รอการแจ้งเตือนงานใหม่</div></div>';
         return;
       }
       listEl.innerHTML = jobs.map(renderJobCard).join("");
@@ -384,8 +685,8 @@
       return '<div class="job-card">' +
         '<span class="badge">' + (statusLabels[job.status] || job.status) + '</span>' +
         '<div class="cust">' + escapeHtml(job.cust_name || "-") + '</div>' +
-        '<div class="addr">' + escapeHtml(job.cust_address || "-") + '</div>' +
-        (job.cod_amount ? '<div class="addr">เก็บเงินปลายทาง: ' + job.cod_amount + ' บาท</div>' : '') +
+        '<div class="addr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>' + escapeHtml(job.cust_address || "-") + '</div>' +
+        (job.cod_amount ? '<div class="cod-line">เก็บเงินปลายทาง ' + job.cod_amount + ' บาท</div>' : '') +
         '<div class="actions">' + actionsHtml + '</div>' +
         '</div>';
     }
@@ -396,30 +697,93 @@
       return div.innerHTML;
     }
 
-    // ============================================================
-    // JOB ACTIONS
-    // ============================================================
+    // ---- job actions ----
     async function acceptJob(jobId) {
       const result = await callGas("acceptJob", { jobId, riderId: session.riderId });
       if (result.ok) loadJobs();
     }
-
     async function departJob(jobId) {
       const result = await callGas("depart", { jobId, riderId: session.riderId });
       if (result.ok) {
         if (window.RiderLocation) {
-          RiderLocation.start(session.riderId, jobId, {
-            supabaseUrl: SUPABASE_URL,
-            supabaseKey: SUPABASE_ANON_KEY
-          });
+          RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
         }
         loadJobs();
       }
     }
-
     async function arriveJob(jobId) {
       const result = await callGas("arrive", { jobId, riderId: session.riderId });
       if (result.ok) loadJobs();
+    }
+
+    // ============================================================
+    // HISTORY TAB
+    // ============================================================
+    async function loadHistory() {
+      if (!session) return;
+      const listEl = document.getElementById("historyList");
+      const result = await callGas("myHistory", { riderId: session.riderId, limit: 50 });
+      if (!result.ok || !Array.isArray(result.data)) {
+        listEl.innerHTML = '<div class="empty-state">โหลดประวัติไม่สำเร็จ ลองรีเฟรชอีกครั้ง</div>';
+        return;
+      }
+      renderHistory(result.data);
+    }
+
+    function renderHistory(rows) {
+      const listEl = document.getElementById("historyList");
+      if (!rows.length) {
+        listEl.innerHTML = '<div class="empty-state">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>' +
+          '<div>ยังไม่มีประวัติการส่งของ</div></div>';
+        return;
+      }
+      listEl.innerHTML = rows.map(renderHistoryItem).join("");
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "-";
+      const d = new Date(iso);
+      if (isNaN(d)) return String(iso);
+      return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) +
+        " " + d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    const failReasonLabels = {
+      no_answer: "ลูกค้าไม่รับสาย", not_home: "ไม่อยู่บ้าน",
+      refused: "ปฏิเสธรับของ", wrong_address: "ที่อยู่ผิด"
+    };
+
+    function renderHistoryItem(row) {
+      const isDone = row.status === "done";
+      return '<div class="history-item">' +
+        '<div class="left">' +
+          '<div class="cust">' + escapeHtml(row.cust_name || "-") + '</div>' +
+          '<div class="addr">' + escapeHtml(row.cust_address || "-") + '</div>' +
+          '<div class="date">' + formatDate(row.done_at) + '</div>' +
+        '</div>' +
+        '<div class="right">' +
+          '<span class="status-pill ' + (isDone ? "done" : "failed") + '">' +
+            (isDone ? "สำเร็จ" : (failReasonLabels[row.fail_reason] || "ไม่สำเร็จ")) +
+          '</span>' +
+          (isDone && row.cod_collected ? '<div class="cod">' + row.cod_collected + ' บาท</div>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    // ============================================================
+    // ACCOUNT TAB
+    // ============================================================
+    async function loadAccountStats() {
+      if (!session) return;
+      const result = await callGas("myCOD", { riderId: session.riderId });
+      if (result.ok && result.data) {
+        document.getElementById("codTotalLabel").textContent = Number(result.data.total || 0).toLocaleString("th-TH");
+        document.getElementById("codCountLabel").textContent = result.data.count || 0;
+      } else {
+        document.getElementById("codTotalLabel").textContent = "–";
+        document.getElementById("codCountLabel").textContent = "–";
+      }
     }
 
     // ============================================================
