@@ -202,7 +202,17 @@
   }
   #jobDetailScreen.active { display: flex; }
   #jobDetailScreen.no-map #jobMap,
-  #jobDetailScreen.no-map #mapHint { display: none; }
+  #jobDetailScreen.no-map #mapHint,
+  #jobDetailScreen.no-map #navGoogleMapsBtn,
+  #jobDetailScreen.no-map #navInstructionBar,
+  #jobDetailScreen.no-map #startNavBtn,
+  #jobDetailScreen.no-map #stopNavBtn { display: none; }
+  #navInstructionBar {
+    margin: 0 16px; padding: 12px 14px; background: var(--accent-dim);
+    border-radius: 12px; border: 1px solid var(--accent);
+  }
+  #navInstructionText { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  #navInstructionDist { font-size: 12px; color: #ffd7d7; }
   #jobDetailScreen.history-mode .detail-actions { display: none; }
   .detail-topbar {
     display: flex; align-items: center; gap: 12px; padding: 14px 16px;
@@ -248,6 +258,9 @@
   .fail-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
   .fail-reasons button { width: auto; flex: 1 1 45%; font-size: 13px; padding: 10px; background: transparent; border: 1px solid var(--line); }
   .fail-reasons button.selected { background: var(--warn); border-color: var(--warn); }
+  .payment-method-group { display: flex; gap: 8px; margin-bottom: 16px; }
+  .payment-method-group button { width: auto; flex: 1; font-size: 13px; padding: 10px; background: transparent; border: 1px solid var(--line); }
+  .payment-method-group button.selected { background: var(--ok); border-color: var(--ok); }
   #photoPreview { width: 100%; border-radius: 10px; margin-bottom: 12px; display: none; }
   .download-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -388,6 +401,19 @@
     <div id="jobMap"></div>
     <div id="mapHint"></div>
 
+    <div id="navInstructionBar" style="display:none;">
+      <div id="navInstructionText">-</div>
+      <div id="navInstructionDist">-</div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin:10px 16px 0;">
+      <button id="startNavBtn" type="button" class="ok" style="flex:1;">▶ เริ่มนำทางในแอพ</button>
+      <button id="stopNavBtn" type="button" class="secondary" style="flex:1; display:none;">⏹ หยุดนำทาง</button>
+    </div>
+    <button id="navGoogleMapsBtn" type="button" class="secondary" style="margin:8px 16px 0; width:calc(100% - 32px);">
+      🧭 เปิดใน Google Maps แทน
+    </button>
+
     <div class="detail-body">
       <div class="detail-cust-name" id="detailCustName">-</div>
 
@@ -442,6 +468,12 @@
       <label for="codInput">จำนวนเงินที่เก็บ (บาท)</label>
       <input id="codInput" type="number" inputmode="decimal" placeholder="0" />
 
+      <label>วิธีรับเงิน</label>
+      <div class="payment-method-group" id="paymentMethodGroup">
+        <button data-method="cash" class="selected" type="button">เงินสด</button>
+        <button data-method="transfer" type="button">โอน / สแกน</button>
+      </div>
+
       <button id="confirmCompleteBtn" class="ok" type="button">ยืนยันส่งสำเร็จ</button>
 
       <div class="divider">หรือ</div>
@@ -476,12 +508,19 @@
     // ============================================================
     let session = null;
     let selectedReason = null;
+    let selectedPaymentMethod = "cash";
     let activeJobId = null;
     let pollInterval = null;
     let activeTab = "tabOrders";
     let currentDetailJob = null;
     let jobMapInstance = null;
     let jobMapMarkers = [];
+    let riderMarkerRef = null;
+    let currentRouteSteps = [];
+    let currentStepIndex = 0;
+    let navWatchId = null;
+    let navDestLat = null, navDestLng = null;
+    let lastRerouteAt = 0;
 
     // ============================================================
     // API HELPER
@@ -815,7 +854,10 @@
         if (window.RiderLocation) {
           RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
         }
-        loadJobs();
+        await loadJobs();
+        // auto-open the detail screen with the live map + route as soon as the rider departs
+        const updated = lastJobs.find(j => j.id === jobId);
+        if (updated) openJobDetail(updated);
       }
     }
     async function arriveJob(jobId) {
@@ -830,6 +872,7 @@
     const detailPrimaryBtn = document.getElementById("detailPrimaryBtn");
     const detailCancelBtn = document.getElementById("detailCancelBtn");
     const mapHint = document.getElementById("mapHint");
+    const navGoogleMapsBtn = document.getElementById("navGoogleMapsBtn");
     const detailProofPhoto = document.getElementById("detailProofPhoto");
     const detailFailReasonBox = document.getElementById("detailFailReasonBox");
     const detailPhoneRow = document.getElementById("detailPhoneRow");
@@ -877,7 +920,7 @@
     function renderDetailActions(job) {
       const map = {
         offered:  { label: "รับงาน",              fn: () => acceptJob(job.id).then(closeAndRefresh) },
-        accepted: { label: "พร้อมออกเดินทาง",      fn: () => departJob(job.id).then(closeAndRefresh) },
+        accepted: { label: "พร้อมออกเดินทาง",      fn: () => departJob(job.id) }, // departJob re-opens this screen itself with the live route
         departed: { label: "ถึงที่หมายแล้ว",        fn: () => arriveJob(job.id).then(closeAndRefresh) },
         arrived:  { label: "ส่งของ",               fn: () => { closeJobDetail(); openCompleteModal(job.id); } }
       };
@@ -892,6 +935,7 @@
 
     document.getElementById("closeDetailBtn").addEventListener("click", closeJobDetail);
     function closeJobDetail() {
+      stopNavigation();
       jobDetailScreen.classList.remove("active");
       currentDetailJob = null;
     }
@@ -911,36 +955,57 @@
     });
 
     // ---- map + route (Leaflet + OSRM) — only for live jobs ----
+    const startNavBtn = document.getElementById("startNavBtn");
+    const stopNavBtn = document.getElementById("stopNavBtn");
+    const navInstructionBar = document.getElementById("navInstructionBar");
+    const navInstructionText = document.getElementById("navInstructionText");
+    const navInstructionDist = document.getElementById("navInstructionDist");
+
+    const destIcon = L.divIcon({
+      className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 2px #dc2626;"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+    const riderIcon = L.divIcon({
+      className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 0 0 2px #16a34a;"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+
     function initJobMap(job) {
+      stopNavigation();
       if (jobMapInstance) { jobMapInstance.remove(); jobMapInstance = null; }
       jobMapMarkers = [];
+      riderMarkerRef = null;
+      currentRouteSteps = [];
+      currentStepIndex = 0;
       mapHint.textContent = "";
+      startNavBtn.style.display = "none";
 
       const destLat = Number(job.dest_lat), destLng = Number(job.dest_lng);
       const hasDest = !isNaN(destLat) && !isNaN(destLng) && (destLat !== 0 || destLng !== 0);
+      navDestLat = hasDest ? destLat : null;
+      navDestLng = hasDest ? destLng : null;
 
       jobMapInstance = L.map("jobMap", { zoomControl: true, attributionControl: false });
-
-      const destIcon = L.divIcon({
-        className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 2px #dc2626;"></div>',
-        iconSize: [16, 16], iconAnchor: [8, 8]
-      });
-      const riderIcon = L.divIcon({
-        className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 0 0 2px #16a34a;"></div>',
-        iconSize: [16, 16], iconAnchor: [8, 8]
-      });
-
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(jobMapInstance);
 
       if (!hasDest) {
         jobMapInstance.setView([18.1459, 100.1410], 13);
         mapHint.textContent = "ไม่มีพิกัดที่อยู่ลูกค้าสำหรับงานนี้";
+        navGoogleMapsBtn.style.display = "none";
         return;
       }
 
       const destMarker = L.marker([destLat, destLng], { icon: destIcon }).addTo(jobMapInstance);
       jobMapMarkers.push(destMarker);
       jobMapInstance.setView([destLat, destLng], 14);
+
+      navGoogleMapsBtn.style.display = "block";
+      navGoogleMapsBtn.onclick = () => {
+        window.open(
+          "https://www.google.com/maps/dir/?api=1&destination=" + destLat + "," + destLng + "&travelmode=driving",
+          "_blank"
+        );
+      };
 
       if (!navigator.geolocation) {
         mapHint.textContent = "อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง";
@@ -951,13 +1016,14 @@
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const riderLat = pos.coords.latitude, riderLng = pos.coords.longitude;
-          const riderMarker = L.marker([riderLat, riderLng], { icon: riderIcon }).addTo(jobMapInstance);
-          jobMapMarkers.push(riderMarker);
+          riderMarkerRef = L.marker([riderLat, riderLng], { icon: riderIcon }).addTo(jobMapInstance);
+          jobMapMarkers.push(riderMarkerRef);
 
           const bounds = L.latLngBounds([[destLat, destLng], [riderLat, riderLng]]);
           jobMapInstance.fitBounds(bounds, { padding: [40, 40] });
 
           drawRoute(riderLat, riderLng, destLat, destLng);
+          startNavBtn.style.display = "block";
         },
         (err) => {
           debugLog("geolocation error", err);
@@ -967,25 +1033,134 @@
       );
     }
 
+    let currentRouteCoords = [];
+    let currentRouteLine = null;
+
     async function drawRoute(fromLat, fromLng, toLat, toLng) {
       try {
         mapHint.textContent = "กำลังคำนวณเส้นทาง...";
         const url = "https://router.project-osrm.org/route/v1/driving/" +
-          fromLng + "," + fromLat + ";" + toLng + "," + toLat + "?overview=full&geometries=geojson";
+          fromLng + "," + fromLat + ";" + toLng + "," + toLat + "?overview=full&geometries=geojson&steps=true";
         const res = await fetch(url);
         const data = await res.json();
         if (!data.routes || !data.routes.length) { mapHint.textContent = ""; return; }
 
+        if (currentRouteLine) { jobMapInstance.removeLayer(currentRouteLine); currentRouteLine = null; }
+
         const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-        const routeLine = L.polyline(coords, { color: "#dc2626", weight: 4, opacity: 0.85 }).addTo(jobMapInstance);
-        jobMapInstance.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+        currentRouteCoords = coords;
+        currentRouteLine = L.polyline(coords, { color: "#dc2626", weight: 4, opacity: 0.85 }).addTo(jobMapInstance);
+        jobMapInstance.fitBounds(currentRouteLine.getBounds(), { padding: [40, 40] });
+
+        currentRouteSteps = (data.routes[0].legs && data.routes[0].legs[0] && data.routes[0].legs[0].steps) || [];
+        currentStepIndex = 0;
 
         const km = (data.routes[0].distance / 1000).toFixed(1);
         const mins = Math.round(data.routes[0].duration / 60);
         mapHint.textContent = "ระยะทาง " + km + " กม. · ใช้เวลาประมาณ " + mins + " นาที";
+
+        if (navWatchId !== null) updateInstructionDisplay(0); // navigation already running: refresh instruction after a reroute
       } catch (err) {
         debugLog("route fetch error", err);
         mapHint.textContent = "";
+      }
+    }
+
+    // ---- turn-by-turn text navigation (no voice) ----
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function maneuverText(step) {
+      const type = step.maneuver.type, mod = step.maneuver.modifier;
+      const streetName = step.name ? (" เข้าถนน" + step.name) : "";
+      const modMap = {
+        uturn: "กลับรถ", "sharp right": "เลี้ยวขวาหักศอก", right: "เลี้ยวขวา", "slight right": "เบี่ยงขวาเล็กน้อย",
+        straight: "ตรงไป", "slight left": "เบี่ยงซ้ายเล็กน้อย", left: "เลี้ยวซ้าย", "sharp left": "เลี้ยวซ้ายหักศอก"
+      };
+      if (type === "depart") return "ออกเดินทาง" + streetName;
+      if (type === "arrive") return "ถึงจุดหมายแล้ว";
+      if (type === "turn") return (modMap[mod] || "เลี้ยว") + streetName;
+      if (type === "continue" || type === "new name") return "ตรงไปต่อ" + streetName;
+      if (type === "merge") return "เข้าร่วมเส้นทาง" + streetName;
+      if (type === "roundabout" || type === "rotary") return "เข้าวงเวียน" + streetName;
+      if (type === "fork") return (modMap[mod] || "แยกทาง") + streetName;
+      if (type === "end of road") return (modMap[mod] || "สุดถนน เลี้ยว") + streetName;
+      return "ดำเนินการต่อ" + streetName;
+    }
+
+    function updateInstructionDisplay(distToManeuver) {
+      const step = currentRouteSteps[currentStepIndex];
+      if (!step) return;
+      navInstructionText.textContent = maneuverText(step);
+      navInstructionDist.textContent = distToManeuver != null
+        ? "อีก " + Math.round(distToManeuver) + " ม."
+        : Math.round(step.distance) + " ม.";
+    }
+
+    function startNavigation() {
+      if (!navDestLat || !navDestLng || !navigator.geolocation) return;
+      startNavBtn.style.display = "none";
+      stopNavBtn.style.display = "block";
+      navInstructionBar.style.display = "block";
+      if (currentRouteSteps.length) updateInstructionDisplay(null);
+
+      navWatchId = navigator.geolocation.watchPosition(onNavPosition, (err) => {
+        debugLog("watchPosition error", err);
+      }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 });
+    }
+
+    function stopNavigation() {
+      if (navWatchId !== null) {
+        navigator.geolocation.clearWatch(navWatchId);
+        navWatchId = null;
+      }
+      startNavBtn.style.display = navDestLat ? "block" : "none";
+      stopNavBtn.style.display = "none";
+      navInstructionBar.style.display = "none";
+    }
+
+    startNavBtn.addEventListener("click", startNavigation);
+    stopNavBtn.addEventListener("click", stopNavigation);
+
+    function onNavPosition(pos) {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+
+      if (riderMarkerRef) riderMarkerRef.setLatLng([lat, lng]);
+      else if (jobMapInstance) { riderMarkerRef = L.marker([lat, lng], { icon: riderIcon }).addTo(jobMapInstance); }
+      if (jobMapInstance) jobMapInstance.panTo([lat, lng]);
+
+      // advance to the next instruction once close to the current maneuver point
+      const step = currentRouteSteps[currentStepIndex];
+      if (step && step.maneuver && step.maneuver.location) {
+        const [mLng, mLat] = step.maneuver.location;
+        const dist = haversine(lat, lng, mLat, mLng);
+        if (dist < 30 && currentStepIndex < currentRouteSteps.length - 1) {
+          currentStepIndex++;
+          updateInstructionDisplay(null);
+        } else {
+          updateInstructionDisplay(dist);
+        }
+      }
+
+      // reroute automatically if the rider has drifted far from the current route line
+      if (currentRouteCoords.length) {
+        let minDist = Infinity;
+        for (const [clat, clng] of currentRouteCoords) {
+          const d = haversine(lat, lng, clat, clng);
+          if (d < minDist) minDist = d;
+          if (minDist < 60) break; // close enough — no need to keep scanning
+        }
+        const now = Date.now();
+        if (minDist > 70 && now - lastRerouteAt > 15000) {
+          lastRerouteAt = now;
+          mapHint.textContent = "หลุดเส้นทาง กำลังคำนวณเส้นทางใหม่...";
+          drawRoute(lat, lng, navDestLat, navDestLng);
+        }
       }
     }
 
@@ -1021,7 +1196,8 @@
       const codBox = document.getElementById("detailCodBox");
       if (isDone && row.cod_collected) {
         codBox.style.display = "flex";
-        document.getElementById("detailCodLabel").textContent = "เก็บเงินแล้ว";
+        const methodLabel = row.payment_method === "transfer" ? " (โอน/สแกน)" : row.payment_method === "cash" ? " (เงินสด)" : "";
+        document.getElementById("detailCodLabel").textContent = "เก็บเงินแล้ว" + methodLabel;
         document.getElementById("detailCodAmount").textContent = Number(row.cod_collected).toLocaleString("th-TH") + " บาท";
       } else {
         codBox.style.display = "none";
@@ -1123,9 +1299,21 @@
       photoPreview.style.display = "none";
       document.getElementById("codInput").value = "";
       selectedReason = null;
+      selectedPaymentMethod = "cash";
       document.querySelectorAll(".fail-reasons button").forEach(b => b.classList.remove("selected"));
+      document.querySelectorAll(".payment-method-group button").forEach(b => {
+        b.classList.toggle("selected", b.dataset.method === "cash");
+      });
       modal.classList.add("active");
     }
+
+    document.querySelectorAll(".payment-method-group button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".payment-method-group button").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        selectedPaymentMethod = btn.dataset.method;
+      });
+    });
 
     document.getElementById("cancelModalBtn").addEventListener("click", () => {
       modal.classList.remove("active");
@@ -1157,7 +1345,7 @@
       const codCollected = Number(document.getElementById("codInput").value) || 0;
 
       const result = await callGas("complete", {
-        jobId: activeJobId, riderId: session.riderId, photoBase64, codCollected
+        jobId: activeJobId, riderId: session.riderId, photoBase64, codCollected, paymentMethod: selectedPaymentMethod
       });
 
       btn.disabled = false; btn.textContent = "ยืนยันส่งสำเร็จ";
