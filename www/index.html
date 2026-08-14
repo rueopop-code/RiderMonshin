@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Monshin Rider</title>
 <link rel="icon" type="image/png" href="logo.png" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   :root {
     --bg: #1a0a0a;
@@ -59,6 +60,7 @@
   button.secondary { background: transparent; border: 1px solid var(--line); }
   button.ok { background: var(--ok); }
   button.warn { background: var(--warn); }
+  button.danger-outline { background: transparent; border: 1px solid #7f1d1d; color: #f87171; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   .line-btn { background: #06c755; margin-top: 10px; }
   .divider { text-align: center; color: var(--muted); font-size: 12px; margin: 16px 0; }
@@ -100,7 +102,7 @@
   .job-list { display: flex; flex-direction: column; gap: 12px; }
   .job-card {
     background: var(--card); border-radius: 14px; padding: 16px;
-    border: 1px solid var(--line); position: relative; overflow: hidden;
+    border: 1px solid var(--line); position: relative; overflow: hidden; cursor: pointer;
   }
   .job-card::before {
     content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent);
@@ -113,6 +115,7 @@
   .job-card .addr { color: var(--muted); font-size: 13px; margin-bottom: 4px; display: flex; gap: 6px; align-items: flex-start; }
   .job-card .addr svg { flex-shrink: 0; margin-top: 2px; width: 14px; height: 14px; opacity: .7; }
   .job-card .cod-line { color: var(--warn); font-size: 13px; font-weight: 600; margin-top: 6px; }
+  .job-card .tap-hint { font-size: 11px; color: var(--muted-2); margin-top: 10px; }
   .job-card .actions { display: flex; gap: 8px; margin-top: 14px; }
   .job-card .actions button { flex: 1; }
 
@@ -191,10 +194,41 @@
   .tabbar-btn svg { width: 21px; height: 21px; }
   .tabbar-btn.active { color: var(--accent); }
 
+  /* ---------- job detail screen ---------- */
+  #jobDetailScreen {
+    display: none; position: fixed; inset: 0; z-index: 60; background: var(--bg);
+    flex-direction: column;
+  }
+  #jobDetailScreen.active { display: flex; }
+  .detail-topbar {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    background: var(--card); border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .detail-topbar h2 { font-size: 16px; margin: 0; flex: 1; }
+  #jobMap { width: 100%; height: 42vh; background: var(--card-2); flex-shrink: 0; }
+  .detail-body { flex: 1; overflow-y: auto; padding: 18px 16px calc(var(--tabbar-h) + 20px); }
+  .detail-cust-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .detail-row {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .detail-row:last-of-type { border-bottom: none; }
+  .detail-row svg { width: 17px; height: 17px; color: var(--muted); flex-shrink: 0; margin-top: 2px; }
+  .detail-row .label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .detail-row .value { font-size: 14px; }
+  .detail-row a.value { color: var(--text); text-decoration: none; }
+  .detail-cod {
+    background: var(--card); border: 1px solid var(--warn); border-radius: 12px; padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: center; margin: 16px 0;
+  }
+  .detail-cod .lbl { font-size: 13px; color: var(--muted); }
+  .detail-cod .amt { font-size: 18px; font-weight: 700; color: var(--warn); }
+  .detail-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  #mapHint { font-size: 12px; color: var(--muted-2); text-align: center; padding: 8px 0; }
+
   /* ---------- complete-delivery modal ---------- */
   .modal-backdrop {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
-    align-items: flex-end; justify-content: center; z-index: 50;
+    align-items: flex-end; justify-content: center; z-index: 70;
   }
   .modal-backdrop.active { display: flex; }
   .modal-sheet {
@@ -333,6 +367,49 @@
     </div>
   </div>
 
+  <!-- ================= JOB DETAIL SCREEN (map + route + actions) ================= -->
+  <div id="jobDetailScreen">
+    <div class="detail-topbar">
+      <button id="closeDetailBtn" class="icon-btn" type="button" style="width:34px;height:34px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <h2 id="detailBadge">รายละเอียดงาน</h2>
+    </div>
+
+    <div id="jobMap"></div>
+    <div id="mapHint"></div>
+
+    <div class="detail-body">
+      <div class="detail-cust-name" id="detailCustName">-</div>
+
+      <div class="detail-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div>
+          <div class="label">ที่อยู่จัดส่ง</div>
+          <div class="value" id="detailAddress">-</div>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
+        <div>
+          <div class="label">เบอร์โทรลูกค้า</div>
+          <a class="value" id="detailPhone" href="#">-</a>
+        </div>
+      </div>
+
+      <div class="detail-cod" id="detailCodBox" style="display:none;">
+        <span class="lbl">เก็บเงินปลายทาง</span>
+        <span class="amt" id="detailCodAmount">0 บาท</span>
+      </div>
+
+      <div class="detail-actions">
+        <button id="detailPrimaryBtn" type="button">รับงาน</button>
+        <button id="detailCancelBtn" class="danger-outline" type="button">ยกเลิกออเดอร์</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= COMPLETE DELIVERY MODAL ================= -->
   <div id="completeModal" class="modal-backdrop">
     <div class="modal-sheet">
@@ -362,6 +439,7 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="rider-location.js"></script>
   <script>
     // ============================================================
@@ -371,12 +449,7 @@
     const SUPABASE_URL = "https://ckfzscprxighfxztmgct.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZnpzY3ByeGlnaGZ4enRtZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTU0NDIsImV4cCI6MjA5MjYzMTQ0Mn0.nQ_LhPz9GsehqRSNx67G5cqxCKHD-cM1gbs2edTqUpw";
 
-    // ============================================================
-    // LOGGING — goes to DevTools console only, nothing shown on screen
-    // ============================================================
-    function debugLog(...args) {
-      console.log(...args);
-    }
+    function debugLog(...args) { console.log(...args); }
 
     // ============================================================
     // STATE
@@ -386,24 +459,26 @@
     let activeJobId = null;
     let pollInterval = null;
     let activeTab = "tabOrders";
+    let currentDetailJob = null;
+    let jobMapInstance = null;
+    let jobMapMarkers = [];
 
     // ============================================================
-    // API HELPER — single attempt, always logs what happened
+    // API HELPER
     // ============================================================
     async function callGas(action, params = {}) {
       debugLog("→ callGas", action, params);
       try {
         const res = await fetch(GAS_ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "text/plain" }, // avoids CORS preflight on GAS
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify({ action, ...params })
         });
         debugLog("← http status", res.status);
         const text = await res.text();
         let json;
-        try {
-          json = JSON.parse(text);
-        } catch (parseErr) {
+        try { json = JSON.parse(text); }
+        catch (parseErr) {
           debugLog("✗ JSON parse failed. Raw response:", text.slice(0, 300));
           return { ok: false, error: "bad_response" };
         }
@@ -424,7 +499,6 @@
       });
     }
 
-    // downscale + compress an image before upload (keeps profile photo uploads fast/small)
     function resizeImage(file, maxSize = 640, quality = 0.85) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -584,7 +658,7 @@
     });
 
     // ============================================================
-    // MANUAL REFRESH BUTTON (top bar)
+    // MANUAL REFRESH BUTTON
     // ============================================================
     const refreshBtn = document.getElementById("refreshBtn");
     async function refreshCurrentTab() {
@@ -637,6 +711,8 @@
     // ============================================================
     // ORDERS TAB
     // ============================================================
+    let lastJobs = [];
+
     async function loadJobs() {
       if (!session) return;
       const result = await callGas("poll", { riderId: session.riderId });
@@ -644,7 +720,14 @@
         debugLog("poll failed or returned bad data", result);
         return;
       }
-      renderJobs(result.data);
+      lastJobs = result.data;
+      renderJobs(lastJobs);
+
+      // keep the detail screen's data fresh if it's currently open on this job
+      if (currentDetailJob) {
+        const fresh = lastJobs.find(j => j.id === currentDetailJob.id);
+        if (fresh) { currentDetailJob = fresh; renderDetailActions(fresh); }
+      }
     }
 
     function renderJobs(jobs) {
@@ -657,21 +740,25 @@
       }
       listEl.innerHTML = jobs.map(renderJobCard).join("");
       jobs.forEach(job => {
+        const card = document.getElementById("card-" + job.id);
+        if (card) card.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return; // let the inline action button handle its own click
+          openJobDetail(job);
+        });
         const accept = document.getElementById("accept-" + job.id);
         const depart = document.getElementById("depart-" + job.id);
         const arrive = document.getElementById("arrive-" + job.id);
         const deliver = document.getElementById("deliver-" + job.id);
-        if (accept) accept.addEventListener("click", () => acceptJob(job.id));
-        if (depart) depart.addEventListener("click", () => departJob(job.id));
-        if (arrive) arrive.addEventListener("click", () => arriveJob(job.id));
-        if (deliver) deliver.addEventListener("click", () => openCompleteModal(job.id));
+        if (accept) accept.addEventListener("click", (e) => { e.stopPropagation(); acceptJob(job.id); });
+        if (depart) depart.addEventListener("click", (e) => { e.stopPropagation(); departJob(job.id); });
+        if (arrive) arrive.addEventListener("click", (e) => { e.stopPropagation(); arriveJob(job.id); });
+        if (deliver) deliver.addEventListener("click", (e) => { e.stopPropagation(); openCompleteModal(job.id); });
       });
     }
 
+    const statusLabels = { offered: "งานใหม่", accepted: "รับงานแล้ว", departed: "กำลังเดินทาง", arrived: "ถึงที่หมายแล้ว" };
+
     function renderJobCard(job) {
-      const statusLabels = {
-        offered: "งานใหม่", accepted: "รับงานแล้ว", departed: "กำลังเดินทาง", arrived: "ถึงที่หมายแล้ว"
-      };
       let actionsHtml = "";
       if (job.status === "offered") {
         actionsHtml = '<button id="accept-' + job.id + '" type="button">รับงาน</button>';
@@ -682,11 +769,12 @@
       } else if (job.status === "arrived") {
         actionsHtml = '<button id="deliver-' + job.id + '" class="ok" type="button">ส่งของ</button>';
       }
-      return '<div class="job-card">' +
+      return '<div class="job-card" id="card-' + job.id + '">' +
         '<span class="badge">' + (statusLabels[job.status] || job.status) + '</span>' +
         '<div class="cust">' + escapeHtml(job.cust_name || "-") + '</div>' +
         '<div class="addr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>' + escapeHtml(job.cust_address || "-") + '</div>' +
         (job.cod_amount ? '<div class="cod-line">เก็บเงินปลายทาง ' + job.cod_amount + ' บาท</div>' : '') +
+        '<div class="tap-hint">แตะเพื่อดูแผนที่และเส้นทาง</div>' +
         '<div class="actions">' + actionsHtml + '</div>' +
         '</div>';
     }
@@ -714,6 +802,156 @@
     async function arriveJob(jobId) {
       const result = await callGas("arrive", { jobId, riderId: session.riderId });
       if (result.ok) loadJobs();
+    }
+
+    // ============================================================
+    // JOB DETAIL SCREEN (map + route + primary action + cancel)
+    // ============================================================
+    const jobDetailScreen = document.getElementById("jobDetailScreen");
+    const detailPrimaryBtn = document.getElementById("detailPrimaryBtn");
+    const detailCancelBtn = document.getElementById("detailCancelBtn");
+    const mapHint = document.getElementById("mapHint");
+
+    function openJobDetail(job) {
+      currentDetailJob = job;
+      document.getElementById("detailBadge").textContent = statusLabels[job.status] || "รายละเอียดงาน";
+      document.getElementById("detailCustName").textContent = job.cust_name || "-";
+      document.getElementById("detailAddress").textContent = job.cust_address || "-";
+
+      const phoneEl = document.getElementById("detailPhone");
+      if (job.cust_phone) {
+        phoneEl.textContent = job.cust_phone;
+        phoneEl.href = "tel:" + job.cust_phone;
+      } else {
+        phoneEl.textContent = "ไม่ระบุ";
+        phoneEl.removeAttribute("href");
+      }
+
+      const codBox = document.getElementById("detailCodBox");
+      if (job.cod_amount) {
+        codBox.style.display = "flex";
+        document.getElementById("detailCodAmount").textContent = Number(job.cod_amount).toLocaleString("th-TH") + " บาท";
+      } else {
+        codBox.style.display = "none";
+      }
+
+      renderDetailActions(job);
+      jobDetailScreen.classList.add("active");
+      setTimeout(() => initJobMap(job), 50); // let the screen render/layout first so Leaflet sizes correctly
+    }
+
+    function renderDetailActions(job) {
+      const map = {
+        offered:  { label: "รับงาน",              fn: () => acceptJob(job.id).then(closeAndRefresh) },
+        accepted: { label: "พร้อมออกเดินทาง",      fn: () => departJob(job.id).then(closeAndRefresh) },
+        departed: { label: "ถึงที่หมายแล้ว",        fn: () => arriveJob(job.id).then(closeAndRefresh) },
+        arrived:  { label: "ส่งของ",               fn: () => { closeJobDetail(); openCompleteModal(job.id); } }
+      };
+      const cfg = map[job.status] || { label: "-", fn: () => {} };
+      detailPrimaryBtn.textContent = cfg.label;
+      detailPrimaryBtn.onclick = cfg.fn;
+      detailCancelBtn.style.display = (job.status === "offered" || job.status === "accepted") ? "block" : "none";
+    }
+
+    function closeAndRefresh() { loadJobs(); closeJobDetail(); }
+
+    document.getElementById("closeDetailBtn").addEventListener("click", closeJobDetail);
+    function closeJobDetail() {
+      jobDetailScreen.classList.remove("active");
+      currentDetailJob = null;
+    }
+
+    detailCancelBtn.addEventListener("click", async () => {
+      if (!currentDetailJob) return;
+      const ok = confirm("ยืนยันยกเลิกออเดอร์นี้? งานจะถูกส่งกลับเข้าคิวให้ไรเดอร์คนอื่นรับแทน");
+      if (!ok) return;
+      detailCancelBtn.disabled = true;
+      const result = await callGas("cancelJob", { jobId: currentDetailJob.id, riderId: session.riderId, reason: "rider_cancelled" });
+      detailCancelBtn.disabled = false;
+      if (result.ok) {
+        closeAndRefresh();
+      } else {
+        alert("ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
+    });
+
+    // ---- map + route (Leaflet + OSRM) ----
+    function initJobMap(job) {
+      if (jobMapInstance) { jobMapInstance.remove(); jobMapInstance = null; }
+      jobMapMarkers = [];
+      mapHint.textContent = "";
+
+      const destLat = Number(job.dest_lat), destLng = Number(job.dest_lng);
+      const hasDest = !isNaN(destLat) && !isNaN(destLng) && (destLat !== 0 || destLng !== 0);
+
+      jobMapInstance = L.map("jobMap", { zoomControl: true, attributionControl: false });
+
+      const destIcon = L.divIcon({
+        className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 2px #dc2626;"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8]
+      });
+      const riderIcon = L.divIcon({
+        className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 0 0 2px #16a34a;"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8]
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(jobMapInstance);
+
+      if (!hasDest) {
+        jobMapInstance.setView([18.1459, 100.1410], 13); // fallback: Phrae province center
+        mapHint.textContent = "ไม่มีพิกัดที่อยู่ลูกค้าสำหรับงานนี้";
+        return;
+      }
+
+      const destMarker = L.marker([destLat, destLng], { icon: destIcon }).addTo(jobMapInstance);
+      jobMapMarkers.push(destMarker);
+      jobMapInstance.setView([destLat, destLng], 14);
+
+      if (!navigator.geolocation) {
+        mapHint.textContent = "อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง";
+        return;
+      }
+
+      mapHint.textContent = "กำลังค้นหาตำแหน่งของคุณ...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const riderLat = pos.coords.latitude, riderLng = pos.coords.longitude;
+          const riderMarker = L.marker([riderLat, riderLng], { icon: riderIcon }).addTo(jobMapInstance);
+          jobMapMarkers.push(riderMarker);
+
+          const bounds = L.latLngBounds([[destLat, destLng], [riderLat, riderLng]]);
+          jobMapInstance.fitBounds(bounds, { padding: [40, 40] });
+
+          drawRoute(riderLat, riderLng, destLat, destLng);
+        },
+        (err) => {
+          debugLog("geolocation error", err);
+          mapHint.textContent = "ไม่สามารถระบุตำแหน่งของคุณได้ (โปรดอนุญาตการเข้าถึงตำแหน่ง)";
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+
+    async function drawRoute(fromLat, fromLng, toLat, toLng) {
+      try {
+        mapHint.textContent = "กำลังคำนวณเส้นทาง...";
+        const url = "https://router.project-osrm.org/route/v1/driving/" +
+          fromLng + "," + fromLat + ";" + toLng + "," + toLat + "?overview=full&geometries=geojson";
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.routes || !data.routes.length) { mapHint.textContent = ""; return; }
+
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        const routeLine = L.polyline(coords, { color: "#dc2626", weight: 4, opacity: 0.85 }).addTo(jobMapInstance);
+        jobMapInstance.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+        const km = (data.routes[0].distance / 1000).toFixed(1);
+        const mins = Math.round(data.routes[0].duration / 60);
+        mapHint.textContent = "ระยะทาง " + km + " กม. · ใช้เวลาประมาณ " + mins + " นาที";
+      } catch (err) {
+        debugLog("route fetch error", err);
+        mapHint.textContent = "";
+      }
     }
 
     // ============================================================
