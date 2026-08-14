@@ -194,15 +194,21 @@
     // ============================================================
     // API HELPER
     // ============================================================
-    async function callGas(action, params = {}) {
+    async function callGas(action, params = {}, attempt = 1) {
+      const MAX_ATTEMPTS = 3;
       try {
         const res = await fetch(GAS_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain" }, // avoids CORS preflight on GAS
           body: JSON.stringify({ action, ...params })
         });
+        if (!res.ok) throw new Error("http_" + res.status);
         return await res.json();
       } catch (err) {
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, attempt * 700)); // 700ms, then 1400ms backoff
+          return callGas(action, params, attempt + 1);
+        }
         return { ok: false, error: "network_error" };
       }
     }
