@@ -52,7 +52,7 @@
   button.secondary { background: transparent; border: 1px solid #4a1f1f; }
   button.ok { background: var(--ok); }
   button.warn { background: var(--warn); }
-  button:disabled { opacity: .5; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
   .line-btn { background: #06c755; margin-top: 10px; }
   .divider { text-align: center; color: var(--muted); font-size: 12px; margin: 16px 0; }
   #loginStatus { margin-top: 14px; font-size: 13px; text-align: center; min-height: 18px; }
@@ -105,6 +105,11 @@
     width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a1f1f;
     background: transparent; color: var(--text); font-size: 14px; text-decoration: none; margin-top: 10px;
   }
+  #debugBox {
+    position: fixed; bottom: 0; left: 0; right: 0; max-height: 30vh; overflow-y: auto;
+    background: #000; color: #0f0; font-family: monospace; font-size: 11px;
+    padding: 8px; display: none; z-index: 999; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -117,14 +122,14 @@
       <p class="sub">เข้าสู่ระบบสำหรับไรเดอร์</p>
 
       <label for="code">รหัสพนักงาน</label>
-      <input id="code" type="text" placeholder="เช่น RD001" />
+      <input id="code" type="text" placeholder="เช่น RD001" autocomplete="off" />
 
       <label for="pw">รหัสผ่าน</label>
-      <input id="pw" type="password" placeholder="••••••••" />
+      <input id="pw" type="password" placeholder="••••••••" autocomplete="off" />
 
-      <button id="loginBtn">เข้าสู่ระบบ</button>
+      <button id="loginBtn" type="button">เข้าสู่ระบบ</button>
       <div class="divider">หรือ</div>
-      <button id="lineLoginBtn" class="line-btn">เข้าสู่ระบบด้วย LINE</button>
+      <button id="lineLoginBtn" class="line-btn" type="button">เข้าสู่ระบบด้วย LINE</button>
 
       <a id="downloadBtn" class="download-btn" href="https://github.com/rueopop-code/RiderMonshin/actions" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -139,7 +144,7 @@
   <div id="appScreen" class="screen">
     <div class="topbar">
       <div class="who">สวัสดี <b id="riderNameLabel"></b></div>
-      <button id="logoutBtn">ออกจากระบบ</button>
+      <button id="logoutBtn" type="button">ออกจากระบบ</button>
     </div>
     <div id="jobList" class="job-list"></div>
   </div>
@@ -156,32 +161,46 @@
       <label for="codInput">จำนวนเงินที่เก็บ (บาท)</label>
       <input id="codInput" type="number" inputmode="decimal" placeholder="0" />
 
-      <button id="confirmCompleteBtn" class="ok">ยืนยันส่งสำเร็จ</button>
+      <button id="confirmCompleteBtn" class="ok" type="button">ยืนยันส่งสำเร็จ</button>
 
       <div class="divider">หรือ</div>
 
       <label>ส่งไม่สำเร็จ — เลือกเหตุผล</label>
       <div class="fail-reasons">
-        <button data-reason="no_answer">ลูกค้าไม่รับสาย</button>
-        <button data-reason="not_home">ไม่อยู่บ้าน</button>
-        <button data-reason="refused">ปฏิเสธรับของ</button>
-        <button data-reason="wrong_address">ที่อยู่ผิด</button>
+        <button data-reason="no_answer" type="button">ลูกค้าไม่รับสาย</button>
+        <button data-reason="not_home" type="button">ไม่อยู่บ้าน</button>
+        <button data-reason="refused" type="button">ปฏิเสธรับของ</button>
+        <button data-reason="wrong_address" type="button">ที่อยู่ผิด</button>
       </div>
-      <button id="confirmFailBtn" class="warn">ยืนยันส่งไม่สำเร็จ</button>
+      <button id="confirmFailBtn" class="warn" type="button">ยืนยันส่งไม่สำเร็จ</button>
 
-      <button id="cancelModalBtn" class="secondary" style="margin-top:10px;">ยกเลิก</button>
+      <button id="cancelModalBtn" class="secondary" type="button" style="margin-top:10px;">ยกเลิก</button>
     </div>
   </div>
+
+  <!-- debug overlay: shows the last error directly on screen, no DevTools needed -->
+  <div id="debugBox"></div>
 
   <script src="rider-location.js"></script>
   <script>
     // ============================================================
-    // CONFIG — fill in SUPABASE_ANON_KEY (safe to expose client-side,
-    // this is NOT the service_role key used in GAS)
+    // CONFIG
     // ============================================================
     const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyevPmMs9FV72XrEOep5cshnQUBZ0vWZFqr0DW4N7XKJNC47PIQuF6XefX2FICCa6ig/exec";
     const SUPABASE_URL = "https://ckfzscprxighfxztmgct.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZnpzY3ByeGlnaGZ4enRtZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTU0NDIsImV4cCI6MjA5MjYzMTQ0Mn0.nQ_LhPz9GsehqRSNx67G5cqxCKHD-cM1gbs2edTqUpw";
+
+    // ============================================================
+    // ON-SCREEN DEBUG LOG (works even without opening DevTools)
+    // ============================================================
+    const debugBox = document.getElementById("debugBox");
+    function debugLog(...args) {
+      const line = args.map(a => typeof a === "object" ? JSON.stringify(a) : String(a)).join(" ");
+      console.log(...args);
+      debugBox.style.display = "block";
+      debugBox.textContent += new Date().toLocaleTimeString() + "  " + line + "\n";
+      debugBox.scrollTop = debugBox.scrollHeight;
+    }
 
     // ============================================================
     // STATE
@@ -192,23 +211,29 @@
     let pollInterval = null;
 
     // ============================================================
-    // API HELPER
+    // API HELPER — single attempt, no silent retry, always logs what happened
     // ============================================================
-    async function callGas(action, params = {}, attempt = 1) {
-      const MAX_ATTEMPTS = 3;
+    async function callGas(action, params = {}) {
+      debugLog("→ callGas", action, params);
       try {
         const res = await fetch(GAS_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "text/plain" }, // avoids CORS preflight on GAS
           body: JSON.stringify({ action, ...params })
         });
-        if (!res.ok) throw new Error("http_" + res.status);
-        return await res.json();
-      } catch (err) {
-        if (attempt < MAX_ATTEMPTS) {
-          await new Promise(r => setTimeout(r, attempt * 700)); // 700ms, then 1400ms backoff
-          return callGas(action, params, attempt + 1);
+        debugLog("← http status", res.status);
+        const text = await res.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (parseErr) {
+          debugLog("✗ JSON parse failed. Raw response:", text.slice(0, 300));
+          return { ok: false, error: "bad_response" };
         }
+        debugLog("← result", json);
+        return json;
+      } catch (err) {
+        debugLog("✗ fetch threw:", err.message || String(err));
         return { ok: false, error: "network_error" };
       }
     }
@@ -253,29 +278,41 @@
     // LOGIN
     // ============================================================
     const loginStatus = document.getElementById("loginStatus");
+    const loginBtn = document.getElementById("loginBtn");
 
-    document.getElementById("loginBtn").addEventListener("click", async () => {
+    async function doLogin() {
       const code = document.getElementById("code").value.trim();
       const pw = document.getElementById("pw").value;
       if (!code || !pw) { loginStatus.textContent = "กรอกรหัสพนักงานและรหัสผ่าน"; return; }
 
+      loginBtn.disabled = true;
       loginStatus.textContent = "กำลังเข้าสู่ระบบ...";
+
       const result = await callGas("login", { code, password: pw });
+
+      loginBtn.disabled = false;
 
       if (!result.ok) {
         const messages = {
           not_found: "ไม่พบรหัสพนักงานนี้",
           not_active: "บัญชียังไม่เปิดใช้งาน",
           wrong_password: "รหัสผ่านไม่ถูกต้อง",
+          bad_response: "เซิร์ฟเวอร์ตอบข้อมูลไม่ถูกต้อง ลองใหม่",
           network_error: "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง"
         };
-        loginStatus.textContent = messages[result.error] || "เข้าสู่ระบบไม่สำเร็จ";
+        loginStatus.textContent = messages[result.error] || ("เข้าสู่ระบบไม่สำเร็จ: " + result.error);
         return;
       }
 
+      loginStatus.textContent = "";
       saveSession(result.data);
       enterApp();
-    });
+    }
+
+    loginBtn.addEventListener("click", doLogin);
+    // also allow pressing Enter in either field
+    document.getElementById("code").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+    document.getElementById("pw").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
 
     document.getElementById("lineLoginBtn").addEventListener("click", () => {
       loginStatus.textContent = "LINE Login ยังไม่ได้ตั้งค่า LIFF สำหรับหน้านี้";
@@ -293,7 +330,7 @@
 
     document.getElementById("logoutBtn").addEventListener("click", () => {
       clearInterval(pollInterval);
-      RiderLocation.stop();
+      if (window.RiderLocation) RiderLocation.stop();
       clearSession();
       showScreen("loginScreen");
     });
@@ -305,7 +342,7 @@
       if (!session) return;
       const result = await callGas("poll", { riderId: session.riderId });
       if (!result.ok || !Array.isArray(result.data)) {
-        console.warn("poll failed or returned bad data", result);
+        debugLog("poll failed or returned bad data", result);
         return;
       }
       renderJobs(result.data);
@@ -336,13 +373,13 @@
       };
       let actionsHtml = "";
       if (job.status === "offered") {
-        actionsHtml = '<button id="accept-' + job.id + '">รับงาน</button>';
+        actionsHtml = '<button id="accept-' + job.id + '" type="button">รับงาน</button>';
       } else if (job.status === "accepted") {
-        actionsHtml = '<button id="depart-' + job.id + '">พร้อมออกเดินทาง</button>';
+        actionsHtml = '<button id="depart-' + job.id + '" type="button">พร้อมออกเดินทาง</button>';
       } else if (job.status === "departed") {
-        actionsHtml = '<button id="arrive-' + job.id + '">ถึงที่หมายแล้ว</button>';
+        actionsHtml = '<button id="arrive-' + job.id + '" type="button">ถึงที่หมายแล้ว</button>';
       } else if (job.status === "arrived") {
-        actionsHtml = '<button id="deliver-' + job.id + '" class="ok">ส่งของ</button>';
+        actionsHtml = '<button id="deliver-' + job.id + '" class="ok" type="button">ส่งของ</button>';
       }
       return '<div class="job-card">' +
         '<span class="badge">' + (statusLabels[job.status] || job.status) + '</span>' +
@@ -370,10 +407,12 @@
     async function departJob(jobId) {
       const result = await callGas("depart", { jobId, riderId: session.riderId });
       if (result.ok) {
-        RiderLocation.start(session.riderId, jobId, {
-          supabaseUrl: SUPABASE_URL,
-          supabaseKey: SUPABASE_ANON_KEY
-        });
+        if (window.RiderLocation) {
+          RiderLocation.start(session.riderId, jobId, {
+            supabaseUrl: SUPABASE_URL,
+            supabaseKey: SUPABASE_ANON_KEY
+          });
+        }
         loadJobs();
       }
     }
@@ -436,7 +475,7 @@
       btn.disabled = false; btn.textContent = "ยืนยันส่งสำเร็จ";
 
       if (result.ok) {
-        RiderLocation.stop();
+        if (window.RiderLocation) RiderLocation.stop();
         modal.classList.remove("active");
         loadJobs();
       } else {
@@ -456,7 +495,7 @@
       btn.disabled = false; btn.textContent = "ยืนยันส่งไม่สำเร็จ";
 
       if (result.ok) {
-        RiderLocation.stop();
+        if (window.RiderLocation) RiderLocation.stop();
         modal.classList.remove("active");
         loadJobs();
       } else {
@@ -467,8 +506,8 @@
     // ============================================================
     // BOOT
     // ============================================================
+    debugLog("Monshin Rider — page loaded", GAS_ENDPOINT);
     if (loadSession()) enterApp();
   </script>
 </body>
 </html>
-
