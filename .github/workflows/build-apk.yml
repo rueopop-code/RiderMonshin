@@ -31,6 +31,11 @@ jobs:
             npx cap add android
           fi
 
+      - name: Generate app icon & splash from resources/
+        run: |
+          npm install @capacitor/assets --save-dev
+          npx capacitor-assets generate --android
+
       - name: Sync Capacitor
         run: npx cap sync android
 
