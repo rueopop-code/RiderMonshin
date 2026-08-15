@@ -21,21 +21,25 @@ const RiderLocation = (() => {
       rider_id: riderId,
       lat: coords.latitude,
       lng: coords.longitude,
-      heading: coords.heading ?? null,
-      speed: coords.speed ?? null,
-      accuracy: coords.accuracy ?? null,
+      heading: (coords.heading === undefined || coords.heading === null) ? null : coords.heading,
+      speed: (coords.speed === undefined || coords.speed === null) ? null : coords.speed,
+      accuracy: (coords.accuracy === undefined || coords.accuracy === null) ? null : coords.accuracy,
       updated_at: new Date().toISOString()
     };
-    await fetch(`${cfg.supabaseUrl}/rest/v1/rider_location?on_conflict=rider_id`, {
+    const res = await fetch(`${cfg.supabaseUrl}/rest/v1/rider_location?on_conflict=rider_id`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "apikey": cfg.supabaseKey,
-        "Authorization": `Bearer ${cfg.supabaseKey}`,
+        "Authorization": "Bearer " + cfg.supabaseKey,
         "Prefer": "resolution=merge-duplicates"
       },
       body: JSON.stringify(body)
-    }).catch(err => console.warn("[RiderLocation] ping failed", err));
+    }).catch(function (err) { console.warn("[RiderLocation] ping network error", err); return null; });
+    if (res && !res.ok) {
+      const text = await res.text().catch(function () { return ""; });
+      console.warn("[RiderLocation] ping HTTP error", res.status, text);
+    }
   }
 
   async function insertTrackPoint(riderId, jobId, coords) {
