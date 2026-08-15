@@ -39,6 +39,35 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      # android/ is regenerated from scratch every build (it's not committed to
+      # the repo), so android-manifest-additions.xml's permissions were never
+      # actually reaching the built APK — background GPS + camera silently had
+      # no permissions declared. This step injects them every time, right
+      # after the opening <manifest> tag, and is idempotent (skips if already present).
+      - name: Inject required Android permissions into the manifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "AndroidManifest.xml not found at $MANIFEST" && exit 1
+          fi
+          if grep -q "ACCESS_BACKGROUND_LOCATION" "$MANIFEST"; then
+            echo "Permissions already present, skipping."
+          else
+            perl -0777 -pi -e 's{(<manifest[^>]*>)}{$1
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+}' "$MANIFEST"
+          fi
+          echo "----- Resulting manifest permissions -----"
+          grep "uses-permission" "$MANIFEST"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
