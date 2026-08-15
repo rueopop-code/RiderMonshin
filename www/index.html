@@ -508,7 +508,14 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="rider-location.js"></script>
+  <script src="rider-location.js?v=2"></script>
+  <script>
+    if (typeof RiderLocation === "undefined") {
+      alert("[DEBUG-LOAD] rider-location.js โหลดไม่ผ่าน — RiderLocation ไม่ถูกสร้างขึ้นทันทีหลัง script tag");
+    } else {
+      alert("[DEBUG-LOAD] rider-location.js โหลดสำเร็จ RiderLocation มีอยู่จริง");
+    }
+  </script>
   <script>
     // ============================================================
     // CONFIG
