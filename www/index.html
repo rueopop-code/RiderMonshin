@@ -539,6 +539,18 @@
     let lastRerouteAt = 0;
 
     // ============================================================
+    // GLOBAL ERROR SAFETY NET (temporary debug aid — shows any
+    // otherwise-invisible crash directly on screen, no USB/console needed)
+    // ============================================================
+    window.addEventListener("error", (e) => {
+      alert("[DEBUG] Uncaught error:\n" + e.message + "\n" + (e.filename ? e.filename + ":" + e.lineno : ""));
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      const reason = e.reason;
+      alert("[DEBUG] Unhandled promise rejection:\n" + (reason && reason.message ? reason.message : reason) + "\n\n" + (reason && reason.stack ? reason.stack : ""));
+    });
+
+    // ============================================================
     // API HELPER
     // ============================================================
     async function callGas(action, params = {}) {
@@ -868,7 +880,14 @@
       const result = await callGas("depart", { jobId, riderId: session.riderId });
       if (result.ok) {
         if (window.RiderLocation) {
-          RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
+          try {
+            await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
+            alert("[DEBUG] RiderLocation.start() เรียกสำเร็จ ไม่มี error");
+          } catch (e) {
+            alert("[DEBUG] RiderLocation.start() พัง:\n" + (e && e.message ? e.message : e) + "\n\n" + (e && e.stack ? e.stack : ""));
+          }
+        } else {
+          alert("[DEBUG] window.RiderLocation ไม่มีอยู่เลย — สคริปต์ rider-location.js อาจโหลดไม่ขึ้น");
         }
         await loadJobs();
         // auto-open the detail screen with the live map + route as soon as the rider departs
