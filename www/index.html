@@ -241,6 +241,17 @@
   }
   .detail-cod .lbl { font-size: 13px; color: var(--muted); }
   .detail-cod .amt { font-size: 18px; font-weight: 700; color: var(--warn); }
+  .detail-items { margin: 16px 0; }
+  .detail-items .items-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .item-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .item-row:last-child { border-bottom: none; }
+  .item-row img, .item-row .item-noimg {
+    width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--card-2); flex-shrink: 0;
+  }
+  .item-row .item-info { flex: 1; min-width: 0; }
+  .item-row .item-name { font-size: 13px; }
+  .item-row .item-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .item-row .item-price { font-size: 13px; font-weight: 600; white-space: nowrap; }
   .detail-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
   #mapHint { font-size: 12px; color: var(--muted-2); text-align: center; padding: 8px 0; }
 
@@ -447,6 +458,11 @@
       <div class="detail-cod" id="detailCodBox" style="display:none;">
         <span class="lbl" id="detailCodLabel">เก็บเงินปลายทาง</span>
         <span class="amt" id="detailCodAmount">0 บาท</span>
+      </div>
+
+      <div class="detail-items" id="detailItemsBox" style="display:none;">
+        <div class="items-title">รายการสินค้า</div>
+        <div id="detailItemsList"></div>
       </div>
 
       <div class="detail-actions">
@@ -884,6 +900,8 @@
       detailPhoneRow.style.display = "flex";
       detailDateRow.style.display = "none";
       document.getElementById("detailCodLabel").textContent = "เก็บเงินปลายทาง";
+      document.getElementById("detailItemsBox").style.display = "none";
+      document.getElementById("detailItemsList").innerHTML = "";
     }
 
     function openJobDetail(job) {
@@ -910,6 +928,28 @@
         document.getElementById("detailCodAmount").textContent = Number(job.cod_amount).toLocaleString("th-TH") + " บาท";
       } else {
         codBox.style.display = "none";
+      }
+
+      const itemsBox = document.getElementById("detailItemsBox");
+      const itemsList = document.getElementById("detailItemsList");
+      if (Array.isArray(job.items) && job.items.length) {
+        itemsBox.style.display = "block";
+        itemsList.innerHTML = job.items.map(it => {
+          const thumb = it.img
+            ? '<img src="' + escapeHtml(it.img) + '" alt="' + escapeHtml(it.name || "") + '" />'
+            : '<div class="item-noimg"></div>';
+          const sub = (it.sizeName ? escapeHtml(it.sizeName) + " · " : "") + "x" + (it.qty || 1);
+          return '<div class="item-row">' + thumb +
+            '<div class="item-info">' +
+              '<div class="item-name">' + escapeHtml(it.name || "-") + '</div>' +
+              '<div class="item-sub">' + sub + '</div>' +
+            '</div>' +
+            '<div class="item-price">' + Number(it.price || 0).toLocaleString("th-TH") + ' บาท</div>' +
+          '</div>';
+        }).join("");
+      } else {
+        itemsBox.style.display = "none";
+        itemsList.innerHTML = "";
       }
 
       renderDetailActions(job);
