@@ -43,7 +43,9 @@ jobs:
       # the repo), so android-manifest-additions.xml's permissions were never
       # actually reaching the built APK — background GPS + camera silently had
       # no permissions declared. This step injects them every time, right
-      # after the opening <manifest> tag, and is idempotent (skips if already present).
+      # after the opening <manifest> tag. Idempotent (skips if already present).
+      # Each permission is its own single-line sed command on purpose — keeps
+      # this step simple plain-text YAML with no embedded multi-line blocks.
       - name: Inject required Android permissions into the manifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -53,17 +55,15 @@ jobs:
           if grep -q "ACCESS_BACKGROUND_LOCATION" "$MANIFEST"; then
             echo "Permissions already present, skipping."
           else
-            perl -0777 -pi -e 's{(<manifest[^>]*>)}{$1
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.INTERNET" />
-}' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.CAMERA" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.WAKE_LOCK" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' "$MANIFEST"
+            sed -i '/<manifest /a\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' "$MANIFEST"
           fi
           echo "----- Resulting manifest permissions -----"
           grep "uses-permission" "$MANIFEST"
