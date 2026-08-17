@@ -1243,7 +1243,17 @@
       document.getElementById("detailCustName").textContent = row.cust_name || "-";
       document.getElementById("detailAddress").textContent = row.cust_address || "-";
 
-      detailPhoneRow.style.display = "none"; // JOB_HISTORY doesn't store the customer phone
+      // JOB_HISTORY now stores cust_phone (added alongside items) — show the
+      // same clickable tel: link the active job-detail screen already has,
+      // instead of hiding this row like before
+      const histPhoneEl = document.getElementById("detailPhone");
+      if (row.cust_phone) {
+        detailPhoneRow.style.display = "flex";
+        histPhoneEl.textContent = row.cust_phone;
+        histPhoneEl.href = "tel:" + row.cust_phone;
+      } else {
+        detailPhoneRow.style.display = "none"; // older history rows recorded before this field existed
+      }
 
       detailDateRow.style.display = "flex";
       document.getElementById("detailDate").textContent = formatDate(row.done_at);
