@@ -69,6 +69,23 @@ window.RiderLocation = (() => {
 
   async function start(riderId, jobId, config) {
     cfg = config;
+    // Defensive guard: if start() is ever called again while a watcher is
+    // already running (e.g. a future code path calls it twice without an
+    // intervening stop(), or start() is called again before a prior call's
+    // addWatcher promise has resolved), the OLD watcher would otherwise be
+    // silently orphaned — watcherId gets overwritten by the new one, so a
+    // later stop() can only ever remove the LATEST watcher, leaving the
+    // first one running (and draining battery/data) forever. Tear down any
+    // existing watcher first so start() is always safe to call idempotently.
+    if (watcherId) {
+      if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+      try {
+        const existing = window.Capacitor.Plugins.BackgroundGeolocation;
+        await Promise.resolve(existing.removeWatcher({ id: watcherId })).catch(() => {});
+      } catch (e) { /* best effort — proceed to start the new watcher regardless */ }
+      watcherId = null;
+    }
+
     // window.Capacitor.registerPlugin does NOT exist for plain <script>-tag
     // (non-bundled/non-ESM) apps like this one — registerPlugin is only an
     // ES module export meant for bundlers (webpack/rollup). The legacy
