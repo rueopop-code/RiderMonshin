@@ -64,7 +64,12 @@ window.RiderLocation = (() => {
 
   async function start(riderId, jobId, config) {
     cfg = config;
-    const { BackgroundGeolocation } = window.Capacitor.Plugins;
+    // NOTE: window.Capacitor.Plugins.X is the OLD/deprecated access pattern.
+    // capacitor-community/background-geolocation requires Capacitor's
+    // registerPlugin() since its Capacitor v3 support — accessing it the old
+    // way returns something whose methods don't properly return Promises,
+    // causing "addWatcher(...).then is not a function".
+    const BackgroundGeolocation = window.Capacitor.registerPlugin("BackgroundGeolocation");
 
     await BackgroundGeolocation.addWatcher(
       {
@@ -98,7 +103,7 @@ window.RiderLocation = (() => {
 
   async function stop() {
     if (!watcherId) return;
-    const { BackgroundGeolocation } = window.Capacitor.Plugins;
+    const BackgroundGeolocation = window.Capacitor.registerPlugin("BackgroundGeolocation");
     await BackgroundGeolocation.removeWatcher({ id: watcherId });
     watcherId = null;
   }
