@@ -815,7 +815,13 @@
           '<div>ยังไม่มีงานตอนนี้<br>รอการแจ้งเตือนงานใหม่</div></div>';
         return;
       }
-      listEl.innerHTML = jobs.map(renderJobCard).join("");
+      // rider is limited to 1 active job at a time (RIDERS.max_jobs) — once
+      // any job is accepted/departed/arrived, offered jobs show as locked
+      // instead of a tappable "รับงาน" button, so this is clear before the
+      // rider even tries (backend still enforces it too, as the real guard)
+      const activeStatuses = ["accepted", "departed", "arrived"];
+      const hasActiveJob = jobs.some(j => activeStatuses.includes(j.status));
+      listEl.innerHTML = jobs.map(job => renderJobCard(job, hasActiveJob)).join("");
       jobs.forEach(job => {
         const card = document.getElementById("card-" + job.id);
         if (card) card.addEventListener("click", (e) => {
@@ -835,10 +841,12 @@
 
     const statusLabels = { offered: "งานใหม่", accepted: "รับงานแล้ว", departed: "กำลังเดินทาง", arrived: "ถึงที่หมายแล้ว" };
 
-    function renderJobCard(job) {
+    function renderJobCard(job, hasActiveJob) {
       let actionsHtml = "";
       if (job.status === "offered") {
-        actionsHtml = '<button id="accept-' + job.id + '" type="button">รับงาน</button>';
+        actionsHtml = hasActiveJob
+          ? '<button type="button" disabled class="disabled-hint">มีงานอยู่แล้ว ทำให้เสร็จก่อน</button>'
+          : '<button id="accept-' + job.id + '" type="button">รับงาน</button>';
       } else if (job.status === "accepted") {
         actionsHtml = '<button id="depart-' + job.id + '" type="button">พร้อมออกเดินทาง</button>';
       } else if (job.status === "departed") {
@@ -865,7 +873,15 @@
     // ---- job actions ----
     async function acceptJob(jobId) {
       const result = await callGas("acceptJob", { jobId, riderId: session.riderId });
-      if (result.ok) loadJobs();
+      if (result.ok) {
+        loadJobs();
+      } else if (result.error === "at_capacity") {
+        alert("คุณมีงานที่ยังไม่เสร็จอยู่แล้ว ต้องส่งงานปัจจุบันให้เสร็จก่อนถึงจะรับงานใหม่ได้");
+        loadJobs();
+      } else if (result.error === "already_taken") {
+        alert("งานนี้มีไรเดอร์คนอื่นรับไปแล้ว");
+        loadJobs();
+      }
     }
     async function departJob(jobId) {
       const result = await callGas("depart", { jobId, riderId: session.riderId });
