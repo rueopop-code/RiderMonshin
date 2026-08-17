@@ -511,7 +511,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="rider-location.js?v=4"></script>
+  <script src="rider-location.js?v=5"></script>
   <script>
     // ============================================================
     // CONFIG
@@ -869,18 +869,14 @@
     }
     async function departJob(jobId) {
       const result = await callGas("depart", { jobId, riderId: session.riderId });
-      alert("[TEST] depart result.ok = " + result.ok); // TEMP — remove after this test round
       if (result.ok) {
         if (window.RiderLocation) {
           try {
             await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
-            alert("[TEST] RiderLocation.start() finished with no error"); // TEMP
           } catch (e) {
-            alert("[TEST] RiderLocation.start() threw: " + (e && e.message ? e.message : e)); // TEMP
             console.warn("RiderLocation.start() failed:", e);
           }
         } else {
-          alert("[TEST] window.RiderLocation is NOT available"); // TEMP
           console.warn("window.RiderLocation is not available — rider-location.js may have failed to load");
         }
         await loadJobs();

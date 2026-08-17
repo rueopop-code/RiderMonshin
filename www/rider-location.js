@@ -12,6 +12,10 @@ window.RiderLocation = (() => {
   let watcherId = null;
   let lastTrackWrite = 0; 
   let cfg = null;
+  let lastLocation = null;     // most recent coords, kept fresh even while stationary
+  let lastPingSent = 0;        // ms timestamp of the last upsert we actually sent
+  let heartbeatTimer = null;   // setInterval handle for the stationary heartbeat
+  let currentRiderId = null;
 
   const TRACK_INTERVAL_MS = 60_000; // matches rider_settings.track_interval_sec
   const PING_INTERVAL_MS  = 10_000; // matches rider_settings.ping_interval_sec
@@ -40,6 +44,7 @@ window.RiderLocation = (() => {
       const text = await res.text().catch(function () { return ""; });
       console.warn("[RiderLocation] ping HTTP error", res.status, text);
     }
+    lastPingSent = Date.now();
   }
 
   async function insertTrackPoint(riderId, jobId, coords) {
@@ -92,7 +97,10 @@ window.RiderLocation = (() => {
         }
         if (!location) return;
 
-        // ping every ~10s regardless (this callback fires on distanceFilter/interval)
+        // keep the freshest coords around so the heartbeat has something to resend
+        lastLocation = location;
+
+        // fires whenever the rider moves past distanceFilter (real movement)
         await upsertLocation(riderId, location);
 
         const now = Date.now();
@@ -106,9 +114,33 @@ window.RiderLocation = (() => {
       console.warn("[RiderLocation] addWatcher id promise rejected", err);
       return null;
     });
+
+    // Heartbeat: addWatcher's callback ONLY fires on real movement past
+    // distanceFilter (15m). If the rider is stationary (waiting at a shop,
+    // stopped at a light), updated_at would stay frozen and look identical
+    // to the app being closed/crashed. This timer resends the last known
+    // coords on a fixed cadence so updated_at stays fresh while stationary,
+    // letting admin/customer tell "online but not moving" apart from
+    // "offline". It never fires sooner than PING_INTERVAL_MS after the last
+    // real upsert, so it only fills gaps — it doesn't spam extra writes on
+    // top of normal movement pings.
+    currentRiderId = riderId;
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = setInterval(() => {
+      if (!lastLocation || !currentRiderId) return;
+      if (Date.now() - lastPingSent < PING_INTERVAL_MS) return; // a real ping already covered this window
+      upsertLocation(currentRiderId, lastLocation);
+    }, PING_INTERVAL_MS);
   }
 
   async function stop() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+    lastLocation = null;
+    currentRiderId = null;
+
     if (!watcherId) return;
     const BackgroundGeolocation = window.Capacitor.Plugins.BackgroundGeolocation;
     await Promise.resolve(BackgroundGeolocation.removeWatcher({ id: watcherId })).catch(err => {
