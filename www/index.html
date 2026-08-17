@@ -704,6 +704,7 @@
 
     function doLogout() {
       clearInterval(pollInterval);
+      gpsTrackingJobId = null;
       if (window.RiderLocation) RiderLocation.stop();
       clearSession();
       showScreen("loginScreen");
@@ -790,6 +791,7 @@
     // ORDERS TAB
     // ============================================================
     let lastJobs = [];
+    let gpsTrackingJobId = null; // tracks which job's GPS watcher is currently running, so it survives an app restart
 
     async function loadJobs() {
       if (!session) return;
@@ -804,6 +806,26 @@
       if (currentDetailJob) {
         const fresh = lastJobs.find(j => j.id === currentDetailJob.id);
         if (fresh) { currentDetailJob = fresh; renderDetailActions(fresh); }
+      }
+
+      // Resume (or stop) GPS tracking based on the real job state from the
+      // server, not just the depart button press. Without this, force-quitting
+      // the app (or a phone restart, crash, or WebView reload) while a job is
+      // still "departed" leaves GPS dark for the rest of that delivery — there
+      // is no other way to restart it once the button moment has passed.
+      const activeJob = lastJobs.find(j => j.status === "departed" && j.rider_id === session.riderId);
+      if (activeJob && gpsTrackingJobId !== activeJob.id) {
+        gpsTrackingJobId = activeJob.id;
+        if (window.RiderLocation) {
+          try {
+            await RiderLocation.start(session.riderId, activeJob.id, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
+          } catch (e) {
+            console.warn("RiderLocation.start() (resume) failed:", e);
+          }
+        }
+      } else if (!activeJob && gpsTrackingJobId) {
+        gpsTrackingJobId = null;
+        if (window.RiderLocation) RiderLocation.stop();
       }
     }
 
@@ -881,11 +903,17 @@
       } else if (result.error === "already_taken") {
         alert("งานนี้มีไรเดอร์คนอื่นรับไปแล้ว");
         loadJobs();
+      } else {
+        // any other/unexpected error (network issue, server error, etc.) —
+        // previously silent, the button just did nothing with no feedback at all
+        alert("รับงานไม่สำเร็จ ลองใหม่อีกครั้ง");
+        loadJobs();
       }
     }
     async function departJob(jobId) {
       const result = await callGas("depart", { jobId, riderId: session.riderId });
       if (result.ok) {
+        gpsTrackingJobId = jobId; // so the resume-check in loadJobs() doesn't call start() a second time right after this
         if (window.RiderLocation) {
           try {
             await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
@@ -899,11 +927,17 @@
         // auto-open the detail screen with the live map + route as soon as the rider departs
         const updated = lastJobs.find(j => j.id === jobId);
         if (updated) openJobDetail(updated);
+      } else {
+        alert("ออกเดินทางไม่สำเร็จ ลองใหม่อีกครั้ง");
       }
     }
     async function arriveJob(jobId) {
       const result = await callGas("arrive", { jobId, riderId: session.riderId });
-      if (result.ok) loadJobs();
+      if (result.ok) {
+        loadJobs();
+      } else {
+        alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
     }
 
     // ============================================================
