@@ -8,7 +8,7 @@
  *   RiderLocation.start(riderId, jobId, { supabaseUrl, supabaseKey });
  *   RiderLocation.stop();
  */
-const RiderLocation = (() => {
+window.RiderLocation = (() => {
   let watcherId = null;
   let lastTrackWrite = 0;
   let cfg = null;
