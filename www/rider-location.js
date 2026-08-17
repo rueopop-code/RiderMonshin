@@ -10,7 +10,7 @@
  */
 window.RiderLocation = (() => {
   let watcherId = null;
-  let lastTrackWrite = 0;
+  let lastTrackWrite = 0; 
   let cfg = null;
 
   const TRACK_INTERVAL_MS = 60_000; // matches rider_settings.track_interval_sec
