@@ -16,9 +16,51 @@ window.RiderLocation = (() => {
   let lastPingSent = 0;        // ms timestamp of the last upsert we actually sent
   let heartbeatTimer = null;   // setInterval handle for the stationary heartbeat
   let currentRiderId = null;
+  let destLat = null, destLng = null; // fetched once per job, for near-destination detection
+  let nearNotifySent = false;         // client-side guard too, so we don't spam the GAS call every update while nearby
 
   const TRACK_INTERVAL_MS = 60_000; // matches rider_settings.track_interval_sec
   const PING_INTERVAL_MS  = 10_000; // matches rider_settings.ping_interval_sec
+  const NEAR_DESTINATION_METERS = 500; // "ใกล้ถึงจุดหมาย" threshold — tune here if 500m feels too early/late
+
+  function haversineMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  async function fetchDestination(jobId) {
+    try {
+      const res = await fetch(`${cfg.supabaseUrl}/rest/v1/rider_jobs?id=eq.${jobId}&select=dest_lat,dest_lng`, {
+        headers: { "apikey": cfg.supabaseKey, "Authorization": "Bearer " + cfg.supabaseKey }
+      });
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length && rows[0].dest_lat != null && rows[0].dest_lng != null) {
+        destLat = rows[0].dest_lat;
+        destLng = rows[0].dest_lng;
+      }
+    } catch (e) {
+      console.warn("[RiderLocation] fetchDestination failed", e);
+    }
+  }
+
+  async function maybeNotifyNearDestination(riderId, jobId, coords) {
+    if (nearNotifySent || destLat == null || destLng == null || !cfg.gasEndpoint) return;
+    const dist = haversineMeters(coords.latitude, coords.longitude, destLat, destLng);
+    if (dist > NEAR_DESTINATION_METERS) return;
+    nearNotifySent = true; // set before the call, not after — avoids firing again on the next update if this call is slow
+    try {
+      await fetch(cfg.gasEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "nearDestination", jobId, riderId })
+      });
+    } catch (e) {
+      console.warn("[RiderLocation] nearDestination notify failed", e);
+    }
+  }
 
   async function upsertLocation(riderId, coords) {
     const body = {
@@ -69,6 +111,8 @@ window.RiderLocation = (() => {
 
   async function start(riderId, jobId, config) {
     cfg = config;
+    destLat = null; destLng = null; nearNotifySent = false;
+    if (jobId) fetchDestination(jobId); // fire-and-forget — not needed before the first location update in practice
     // Defensive guard: if start() is ever called again while a watcher is
     // already running (e.g. a future code path calls it twice without an
     // intervening stop(), or start() is called again before a prior call's
@@ -119,6 +163,7 @@ window.RiderLocation = (() => {
 
         // fires whenever the rider moves past distanceFilter (real movement)
         await upsertLocation(riderId, location);
+        await maybeNotifyNearDestination(riderId, jobId, location);
 
         const now = Date.now();
         if (now - lastTrackWrite >= TRACK_INTERVAL_MS) {
@@ -147,6 +192,7 @@ window.RiderLocation = (() => {
       if (!lastLocation || !currentRiderId) return;
       if (Date.now() - lastPingSent < PING_INTERVAL_MS) return; // a real ping already covered this window
       upsertLocation(currentRiderId, lastLocation);
+      maybeNotifyNearDestination(currentRiderId, jobId, lastLocation);
     }, PING_INTERVAL_MS);
   }
 
@@ -157,6 +203,7 @@ window.RiderLocation = (() => {
     }
     lastLocation = null;
     currentRiderId = null;
+    destLat = null; destLng = null; nearNotifySent = false;
 
     if (!watcherId) return;
     const BackgroundGeolocation = window.Capacitor.Plugins.BackgroundGeolocation;
