@@ -513,13 +513,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="rider-location.js?v=2"></script>
   <script>
-    if (typeof RiderLocation === "undefined") {
-      alert("[DEBUG-LOAD] rider-location.js โหลดไม่ผ่าน — RiderLocation ไม่ถูกสร้างขึ้นทันทีหลัง script tag");
-    } else {
-      alert("[DEBUG-LOAD] rider-location.js โหลดสำเร็จ RiderLocation มีอยู่จริง");
-    }
-  </script>
-  <script>
     // ============================================================
     // CONFIG
     // ============================================================
@@ -547,18 +540,6 @@
     let navWatchId = null;
     let navDestLat = null, navDestLng = null;
     let lastRerouteAt = 0;
-
-    // ============================================================
-    // GLOBAL ERROR SAFETY NET (temporary debug aid — shows any
-    // otherwise-invisible crash directly on screen, no USB/console needed)
-    // ============================================================
-    window.addEventListener("error", (e) => {
-      alert("[DEBUG] Uncaught error:\n" + e.message + "\n" + (e.filename ? e.filename + ":" + e.lineno : ""));
-    });
-    window.addEventListener("unhandledrejection", (e) => {
-      const reason = e.reason;
-      alert("[DEBUG] Unhandled promise rejection:\n" + (reason && reason.message ? reason.message : reason) + "\n\n" + (reason && reason.stack ? reason.stack : ""));
-    });
 
     // ============================================================
     // API HELPER
@@ -892,12 +873,11 @@
         if (window.RiderLocation) {
           try {
             await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
-            alert("[DEBUG] RiderLocation.start() เรียกสำเร็จ ไม่มี error");
           } catch (e) {
-            alert("[DEBUG] RiderLocation.start() พัง:\n" + (e && e.message ? e.message : e) + "\n\n" + (e && e.stack ? e.stack : ""));
+            console.warn("RiderLocation.start() failed:", e);
           }
         } else {
-          alert("[DEBUG] window.RiderLocation ไม่มีอยู่เลย — สคริปต์ rider-location.js อาจโหลดไม่ขึ้น");
+          console.warn("window.RiderLocation is not available — rider-location.js may have failed to load");
         }
         await loadJobs();
         // auto-open the detail screen with the live map + route as soon as the rider departs
