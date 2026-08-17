@@ -903,6 +903,8 @@
       } else if (result.error === "already_taken") {
         alert("งานนี้มีไรเดอร์คนอื่นรับไปแล้ว");
         loadJobs();
+      } else if (result.error === "busy_try_again") {
+        alert("ระบบกำลังประมวลผลอยู่ ลองกดอีกครั้ง");
       } else {
         // any other/unexpected error (network issue, server error, etc.) —
         // previously silent, the button just did nothing with no feedback at all
