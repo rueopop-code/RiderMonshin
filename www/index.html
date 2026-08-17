@@ -1232,6 +1232,31 @@
       detailDateRow.style.display = "flex";
       document.getElementById("detailDate").textContent = formatDate(row.done_at);
 
+      // product list (same rendering pattern as the active job-detail screen) —
+      // items is only present in history rows recorded after the JOB_HISTORY
+      // "items" column was added; older rows will simply have none to show
+      const itemsBox = document.getElementById("detailItemsBox");
+      const itemsList = document.getElementById("detailItemsList");
+      if (Array.isArray(row.items) && row.items.length) {
+        itemsBox.style.display = "block";
+        itemsList.innerHTML = row.items.map(it => {
+          const thumb = it.img
+            ? '<img src="' + escapeHtml(it.img) + '" alt="' + escapeHtml(it.name || "") + '" />'
+            : '<div class="item-noimg"></div>';
+          const sub = (it.sizeName ? escapeHtml(it.sizeName) + " · " : "") + "x" + (it.qty || 1);
+          return '<div class="item-row">' + thumb +
+            '<div class="item-info">' +
+              '<div class="item-name">' + escapeHtml(it.name || "-") + '</div>' +
+              '<div class="item-sub">' + sub + '</div>' +
+            '</div>' +
+            '<div class="item-price">' + Number(it.price || 0).toLocaleString("th-TH") + ' บาท</div>' +
+          '</div>';
+        }).join("");
+      } else {
+        itemsBox.style.display = "none";
+        itemsList.innerHTML = "";
+      }
+
       if (isDone && row.proof_photo_url) {
         detailProofPhoto.src = row.proof_photo_url;
         detailProofPhoto.style.display = "block";
