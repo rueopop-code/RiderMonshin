@@ -64,14 +64,17 @@ window.RiderLocation = (() => {
 
   async function start(riderId, jobId, config) {
     cfg = config;
-    // NOTE: window.Capacitor.Plugins.X is the OLD/deprecated access pattern.
-    // capacitor-community/background-geolocation requires Capacitor's
-    // registerPlugin() since its Capacitor v3 support — accessing it the old
-    // way returns something whose methods don't properly return Promises,
-    // causing "addWatcher(...).then is not a function".
-    const BackgroundGeolocation = window.Capacitor.registerPlugin("BackgroundGeolocation");
+    // window.Capacitor.registerPlugin does NOT exist for plain <script>-tag
+    // (non-bundled/non-ESM) apps like this one — registerPlugin is only an
+    // ES module export meant for bundlers (webpack/rollup). The legacy
+    // window.Capacitor.Plugins.X proxy DOES exist and DOES find/call
+    // addWatcher successfully here — its only issue is the return value
+    // isn't always a real thenable Promise for this plugin's callback-style
+    // signature, so we normalize it through Promise.resolve() instead of
+    // chaining .then() directly on it.
+    const BackgroundGeolocation = window.Capacitor.Plugins.BackgroundGeolocation;
 
-    await BackgroundGeolocation.addWatcher(
+    const maybeId = BackgroundGeolocation.addWatcher(
       {
         backgroundMessage: "กำลังส่งตำแหน่งให้ลูกค้าติดตามการจัดส่ง",
         backgroundTitle: "Monshin Rider กำลังทำงาน",
@@ -98,13 +101,19 @@ window.RiderLocation = (() => {
           await insertTrackPoint(riderId, jobId, location);
         }
       }
-    ).then(id => { watcherId = id; });
+    );
+    watcherId = await Promise.resolve(maybeId).catch(err => {
+      console.warn("[RiderLocation] addWatcher id promise rejected", err);
+      return null;
+    });
   }
 
   async function stop() {
     if (!watcherId) return;
-    const BackgroundGeolocation = window.Capacitor.registerPlugin("BackgroundGeolocation");
-    await BackgroundGeolocation.removeWatcher({ id: watcherId });
+    const BackgroundGeolocation = window.Capacitor.Plugins.BackgroundGeolocation;
+    await Promise.resolve(BackgroundGeolocation.removeWatcher({ id: watcherId })).catch(err => {
+      console.warn("[RiderLocation] removeWatcher failed", err);
+    });
     watcherId = null;
   }
 
