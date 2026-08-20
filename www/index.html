@@ -480,7 +480,7 @@
     <div class="modal-sheet">
       <h3>ยืนยันการส่งของ</h3>
 
-      <label>ถ่ายรูปยืนยัน (ก่อนถึงมือลูกค้า)</label>
+      <label>ถ่ายรูปยืนยัน (ก่อนถึงมือลูกค้า) <span style="color:#dc2626;">* บังคับ</span></label>
       <input id="photoInput" type="file" accept="image/*" capture="environment" />
       <img id="photoPreview" />
 
@@ -818,7 +818,7 @@
         gpsTrackingJobId = activeJob.id;
         if (window.RiderLocation) {
           try {
-            await RiderLocation.start(session.riderId, activeJob.id, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
+            await RiderLocation.start(session.riderId, activeJob.id, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY, gasEndpoint: GAS_ENDPOINT });
           } catch (e) {
             console.warn("RiderLocation.start() (resume) failed:", e);
           }
@@ -918,7 +918,7 @@
         gpsTrackingJobId = jobId; // so the resume-check in loadJobs() doesn't call start() a second time right after this
         if (window.RiderLocation) {
           try {
-            await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY });
+            await RiderLocation.start(session.riderId, jobId, { supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_ANON_KEY, gasEndpoint: GAS_ENDPOINT });
           } catch (e) {
             console.warn("RiderLocation.start() failed:", e);
           }
@@ -1472,11 +1472,18 @@
     });
 
     document.getElementById("confirmCompleteBtn").addEventListener("click", async () => {
+      // proof photo is required, not optional — without this check the rider
+      // could confirm delivery with zero photo, silently skipping the Drive
+      // save + customer LINE photo + history photo all at once with no warning
+      if (!photoInput.files[0]) {
+        alert("กรุณาถ่ายรูปสินค้าก่อนส่ง เพื่อเป็นหลักฐานยืนยันการจัดส่ง");
+        return;
+      }
+
       const btn = document.getElementById("confirmCompleteBtn");
       btn.disabled = true; btn.textContent = "กำลังส่งข้อมูล...";
 
-      let photoBase64 = null;
-      if (photoInput.files[0]) photoBase64 = await fileToBase64(photoInput.files[0]);
+      const photoBase64 = await fileToBase64(photoInput.files[0]);
 
       const codCollected = Number(document.getElementById("codInput").value) || 0;
 
