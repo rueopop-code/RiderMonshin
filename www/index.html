@@ -511,6 +511,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer crossorigin="anonymous"></script>
   <script src="rider-location.js?v=5"></script>
   <script>
     // ============================================================
@@ -530,6 +531,7 @@
     let selectedPaymentMethod = "cash";
     let activeJobId = null;
     let pollInterval = null;
+    let realtimeChannel = null; // Supabase Realtime subscription — see setupRealtimeJobs() below
     let activeTab = "tabOrders";
     let currentDetailJob = null;
     let jobMapInstance = null;
@@ -700,10 +702,53 @@
 
       clearInterval(pollInterval);
       pollInterval = setInterval(loadJobs, 15000);
+      setupRealtimeJobs();
+    }
+
+    // Live push for new/updated jobs — without this, a rider only ever
+    // finds out about a freshly-dispatched order on the NEXT 15s poll tick
+    // (worst case: nearly 15s of dead air right when admin just sent them
+    // work). Subscribing directly to rider_jobs changes via Supabase
+    // Realtime (same technique the admin panel already uses for its own
+    // orders table) makes new/updated jobs show up within a second or two
+    // instead. The 15s poll stays running underneath as a safety net —
+    // if Realtime's websocket ever drops (phone sleep, spotty signal,
+    // Realtime not enabled for this table in Supabase), the rider still
+    // gets every job, just back on the slower poll cadence, never silently
+    // stuck with nothing.
+    let realtimeDebounce = null;
+    function setupRealtimeJobs() {
+      if (!session || typeof supabase === "undefined") return; // supabase-js failed to load — poll interval alone still covers it
+      teardownRealtimeJobs();
+      try {
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        realtimeChannel = sb
+          .channel("rider-jobs-live-" + session.riderId)
+          .on("postgres_changes", { event: "*", schema: "public", table: "rider_jobs" }, () => {
+            // don't care WHAT changed here, just that something did — loadJobs()
+            // already does the real filtering (assigned to me / open pool).
+            // debounced a touch so a burst of near-simultaneous changes
+            // (e.g. admin dispatching several orders back to back) doesn't
+            // fire loadJobs() once per row.
+            clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(loadJobs, 400);
+          })
+          .subscribe();
+      } catch (e) {
+        console.warn("[Realtime] setup failed, falling back to poll-only", e);
+      }
+    }
+    function teardownRealtimeJobs() {
+      clearTimeout(realtimeDebounce);
+      if (realtimeChannel) {
+        try { realtimeChannel.unsubscribe(); } catch (e) {}
+        realtimeChannel = null;
+      }
     }
 
     function doLogout() {
       clearInterval(pollInterval);
+      teardownRealtimeJobs();
       gpsTrackingJobId = null;
       if (window.RiderLocation) RiderLocation.stop();
       clearSession();
