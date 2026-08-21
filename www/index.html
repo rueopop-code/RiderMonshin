@@ -332,7 +332,7 @@
     <div id="tabOrders" class="tab-panel active">
       <div class="section-title">งานที่ได้รับมอบหมาย</div>
       <div id="jobList" class="job-list">
-        <div class="spinner-center"><div class="spinner"></div></div>
+        <div class="spinner-center"><div class="spinner"></div><div id="jobListSlowHint" style="display:none;margin-top:12px;font-size:13px;color:#999;">การโหลดใช้เวลานานกว่าปกติ<br>กรุณารอสักครู่...</div></div>
       </div>
     </div>
 
@@ -840,9 +840,42 @@
 
     async function loadJobs() {
       if (!session) return;
+      // Apps Script cold-starts can genuinely take several seconds after any
+      // idle period — that's not a bug, just how it behaves, but a bare
+      // spinner with zero context looks identical to "broken" during that
+      // wait. Show a reassuring hint only if it's actually taking a while
+      // (not on every normal-speed load), and only for the very first
+      // pending load (the hint element won't exist anymore once any
+      // load has completed once, which is fine — it's not needed then).
+      const slowHintTimer = setTimeout(() => {
+        const hint = document.getElementById("jobListSlowHint");
+        if (hint) hint.style.display = "block";
+      }, 3000);
       const result = await callGas("poll", { riderId: session.riderId });
+      clearTimeout(slowHintTimer);
       if (!result.ok || !Array.isArray(result.data)) {
         debugLog("poll failed or returned bad data", result);
+        // The <div id="jobList"> starts as a hardcoded spinner in the HTML
+        // and only ever gets replaced by renderJobs() below, on success —
+        // if the very first poll after login is slow (Apps Script cold
+        // start, which can genuinely take several seconds after any idle
+        // period) or fails outright (network drop, GAS error), this used to
+        // just log and return, leaving that spinner spinning forever with
+        // zero feedback. The rider had no way to tell "still loading" apart
+        // from "broken" — exactly the stuck-spinner screen this fixes.
+        // Only show this error state on a genuinely EMPTY list (first load
+        // or a poll that's never succeeded yet) — if jobs are already
+        // showing from a prior successful poll, a single failed retry
+        // shouldn't wipe a working screen, the next 15s/realtime attempt
+        // will just quietly try again.
+        const listEl = document.getElementById("jobList");
+        if (listEl && !lastJobs.length) {
+          listEl.innerHTML = '<div class="empty-state">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+            '<div>โหลดรายการงานไม่สำเร็จ<br>เช็คสัญญาณอินเทอร์เน็ตแล้วลองใหม่</div>' +
+            '<button onclick="loadJobs()" style="margin-top:14px;padding:10px 22px;background:#dc2626;color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">ลองใหม่</button>' +
+            '</div>';
+        }
         return;
       }
       lastJobs = result.data;
