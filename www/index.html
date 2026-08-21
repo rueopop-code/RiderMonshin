@@ -983,6 +983,8 @@
         loadJobs();
       } else if (result.error === "busy_try_again") {
         alert("ระบบกำลังประมวลผลอยู่ ลองกดอีกครั้ง");
+      } else if (result.error === "rider_not_active") {
+        alert("บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อร้านค้า");
       } else {
         // any other/unexpected error (network issue, server error, etc.) —
         // previously silent, the button just did nothing with no feedback at all
